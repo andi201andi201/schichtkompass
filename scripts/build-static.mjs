@@ -1,0 +1,14 @@
+import {build} from 'esbuild';
+import {readFile,writeFile,rm,mkdir,cp} from 'node:fs/promises';
+await mkdir('dist/vendor/pdfjs',{recursive:true});
+for(const file of ['pdf.min.mjs','pdf.worker.min.mjs'])await cp('node_modules/pdfjs-dist/build/'+file,'dist/vendor/pdfjs/'+file);
+for(const directory of ['cmaps','standard_fonts'])await cp('node_modules/pdfjs-dist/'+directory,'dist/vendor/pdfjs/'+directory,{recursive:true});
+await cp('node_modules/pdfjs-dist/LICENSE','dist/vendor/pdfjs/LICENSE');
+await rm('dist/assets',{recursive:true,force:true});
+await mkdir('dist/assets',{recursive:true});
+const result=await build({entryPoints:['dist/app.js'],outdir:'dist/assets',entryNames:'app-[hash]',bundle:true,format:'esm',target:['safari16','chrome100'],minify:true,external:['/vendor/*'],metafile:true});
+const output=Object.keys(result.metafile.outputs).find(p=>p.endsWith('.js'));
+if(!output)throw new Error('Browser bundle was not generated.');
+const html=await readFile('dist/index.html','utf8');
+await writeFile('dist/index.html',html.replace(/<script type="module" src="[^"]+"><\/script>/,'<script type="module" src="./'+output.replace(/^dist\//,'')+'"></script>'));
+console.log('Static browser bundle: '+output);

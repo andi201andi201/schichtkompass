@@ -1,0 +1,9 @@
+node_modules/
+.sites/
+.env*
+*.tar.gz
+*.zip
+.openai/
+upload/
+dist/vendor/
+dist/symbols/
