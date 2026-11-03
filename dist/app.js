@@ -1,3 +1,4 @@
+import {setupSubscription} from './subscription.js';
 import {MONTHS,dayCount,normalise,featureDistance,groupSymbols,validateDefinition,shiftMinutes,makeICS,detectGrid,findPerson,pad} from './core.js';
 import {imagePlacements,imageAtCell,pixelRGBA} from './pdf-images.js';
 import {annotateSymbol,definitionFor,isEmptySymbol} from './symbol-registry.js';
@@ -89,14 +90,14 @@ function renderReview(){const list=entries();const shifts=list.filter(e=>e.defin
 function exportAllowed(){return $('#confirmed').checked&&entries().every(e=>validateDefinition(e.definition))&&entries().some(e=>e.definition?.type!=='skip')}
 let calendarFileURL;
 function clearCalendarFile(){if(calendarFileURL)URL.revokeObjectURL(calendarFileURL);calendarFileURL=null;$('#export-success').hidden=true;$('#export-success').textContent=''}
-function updateExport(){const enabled=exportAllowed();$('#download').disabled=!enabled;$('#share-calendar').disabled=!enabled;if(!enabled)clearCalendarFile()}
+function updateExport(){const enabled=exportAllowed();$('#download').disabled=!enabled;$('#share-calendar').disabled=!enabled;if(!enabled)clearCalendarFile();refreshSubscription?.()}
 function calendarFileName(){return`SchichtKompass-${year()}-${pad(month())}${state.isDemo?'-BEISPIEL':''}.ics`}
 async function calendarContent(){return makeICS({year:year(),month:month(),entries:entries(),identity:$('#person').value,location:$('#location').value.trim(),reminder:$('#reminder').value})}
 function updateCalendarGuide(){
  const target=$('#calendar-target').value,timetree=target.startsWith('timetree'),ios=target==='iphone'||target==='timetree-ios',shared=$('#timetree-sharing').value==='shared';
  $('#timetree-mode').hidden=!timetree;
  $('#download').innerHTML=timetree?'Kalenderdatei für TimeTree erstellen <span>↓</span>':'Kalenderdatei erstellen <span>↓</span>';
- const apple='<li>Erstelle im iPhone-Kalender einen separaten Kalender «SchichtKompass».</li><li>Erstelle unten die Kalenderdatei. Öffne sie als .ics-Anhang in <strong>Apple Mail</strong> und füge die Termine diesem Kalender hinzu. Falls verfügbar, kannst du die Datei unten über «Kalenderdatei teilen» an Mail übergeben.</li>';
+ const apple='<li>Prüfe deinen Dienstplan und bestätige unten die Speicherung für das Abo.</li><li>Tippe auf «Kalender-Abo erstellen», danach auf «Im iPhone-Kalender abonnieren» und bestätige im iPhone.</li>';
  const android='<li>Importiere die unten erstellte .ics-Datei in einen separaten Google-Kalender «SchichtKompass». Der Google-Import erfolgt am Computer unter Einstellungen → Importieren &amp; Exportieren. Eine Kalender-App mit .ics-Import kann die Datei auch auf dem Handy übernehmen.</li><li>Prüfe, ob die Termine im Kalender deines Android-Handys angezeigt werden.</li>';
  let title,body,help='';
  if(timetree){
@@ -106,7 +107,7 @@ function updateCalendarGuide(){
   if(shared){body+='<li>Öffne die <strong>TimeTree-App</strong>, wähle deinen gemeinsamen Kalender aus der Kalenderliste und tippe oben rechts auf die vier Quadrate. Wähle «Termine aus externem Kalender importieren» und anschliessend «SchichtKompass».</li>';help='<strong>Für alle Mitglieder sichtbar.</strong> Der Import ist eine Kopie. Spätere Änderungen werden nicht automatisch übernommen und können beim erneuten Import doppelte Termine erzeugen. Prüfe und entferne überholte Einträge im gemeinsamen Kalender.'}
   else{body+='<li>Öffne die <strong>TimeTree-App</strong>: Kalenderansicht → Filter oben rechts → anzuzeigende Filter wählen. Aktiviere «SchichtKompass» (auf dem iPhone unter iCloud), speichere und aktiviere den Kalender im Filter.</li>';help='<strong>Nur für dich sichtbar.</strong> TimeTree zeigt die Termine aus dem Gerätekalender an und übernimmt dessen Änderungen. Ein geänderter Dienstplan muss zuerst erneut im Gerätekalender aktualisiert werden.'}
   help+=' Die Anzeige externer Kalender funktioniert in der TimeTree-App, nicht in der TimeTree-Webversion.';
- }else if(ios){title='In den iPhone-Kalender übernehmen';body=apple;help='Der Import benötigt deine Bestätigung auf dem iPhone. Ein direktes Kalenderabo ist noch nicht eingerichtet: Die private Website ist für die Kalender-App nicht ohne ChatGPT-Anmeldung erreichbar.'}
+ }else if(ios){title='In den iPhone-Kalender übernehmen';body=apple;help='Der Import benötigt deine Bestätigung auf dem iPhone. Das Abo erscheint als eigener Kalender. Für spätere Änderungen aktualisierst du den bestätigten Monat unten im Abo.'}
  else{title='In Google Kalender übernehmen';body=android;help='Verwende für den Import denselben Google-Account wie auf deinem Handy.'}
  const guide=$('#calendar-guide');guide.innerHTML='<h3>'+title+'</h3><ol>'+body+'</ol><p class="calendar-note">'+help+'</p>';
  if(timetree){const link=document.createElement('a');link.href=shared?'https://support.timetreeapp.com/hc/en-us/articles/360000639742-I-want-to-share-another-calendar-such-as-Google-Calendar':'https://support.timetreeapp.com/hc/en-us/articles/360000639682-I-want-to-display-another-calendar-such-as-Google-Calendar';link.target='_blank';link.rel='noopener noreferrer';link.textContent='Offizielle TimeTree-Anleitung ↗';guide.append(link)}
@@ -124,3 +125,5 @@ $('#demo').onclick=()=>{state.pdf=null;state.pdfPage=null;state.placements=[];st
 $('#reset').onclick=async()=>{clearCalendarFile();++state.loadId;if(state.pdf)await state.pdf.destroy();state.pdf=null;state.pdfPage=null;state.placements=[];state.items=[];state.rect=null;state.groups=[];state.cells=[];state.catalog=[];state.catalogMode=false;state.overrides={};state.isDemo=false;state.maxStep=0;canvas.width=canvas.height=0;overlay.width=overlay.height=0;$('#person').value='';$('#start-person').value='';$('#location').value='';$('#confirmed').checked=false;$('#export-success').hidden=true;goto(0);notice('Die Sitzung ist geleert. Eine ausdrücklich gespeicherte Legende bleibt auf diesem Gerät erhalten.','success')};
 $('#start-person').oninput=()=>{$('#person').value=$('#start-person').value};$('#person').oninput=()=>{$('#start-person').value=$('#person').value};
 goto(0);
+
+var refreshSubscription=setupSubscription({canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});

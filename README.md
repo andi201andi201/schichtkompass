@@ -30,3 +30,10 @@ Version 0.5 protects blank cells from previously mislabelled legends and reads Z
 5. Nach erfolgreichem Lauf steht die bestätigte Website-Adresse unter **Settings → Pages**.
 
 Die PDF-Bibliothek wird beim Build aus der festgelegten npm-Version nach `dist/vendor` kopiert. Die kleinen Symbolbilder sind in der Referenzdatei eingebettet. Es sind keine vollständigen Dienstpläne enthalten. GitHub Pages veröffentlicht eine statische Website ohne ChatGPT-Anmeldung; die bestehende private Sites-Version bleibt davon unabhängig.
+
+
+## Kalender-Abo (0.6)
+
+Die GitHub-Seite verwendet optional den separaten Kalenderdienst unter https://schichtkompass-calendar.andi201andi201.chatgpt.site. Erst nach Zustimmung werden bestätigte ICS-Monatsdaten übertragen. Die Originaldatei und der eingegebene Name bleiben lokal. Zufällige 256-Bit-Schlüssel trennen Abruf und Verwaltung; serverseitig werden Schlüssel nur gehasht gespeichert. Der Browser speichert die Schlüssel vor dem ersten Schreibversuch. Ein Monat ersetzt denselben Monat. Widerruf löscht Kalender und Monatsdaten; lokal bereits importierte Kopien werden nicht entfernt. Ohne gesicherte Schlüssel ist nach Browserdatenlöschung keine Verwaltung möglich.
+
+Der Dienst ist separat über Sites bereitgestellt und wird nicht durch den Pages-Workflow aktualisiert. Die Service-Quellen liegen in `calendar-service/` (ohne Deployment-Identität).
