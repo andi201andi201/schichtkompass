@@ -37,3 +37,11 @@ Die PDF-Bibliothek wird beim Build aus der festgelegten npm-Version nach `dist/v
 Die GitHub-Seite verwendet optional den separaten Kalenderdienst unter https://schichtkompass-calendar.andi201andi201.chatgpt.site. Erst nach Zustimmung werden bestätigte ICS-Monatsdaten übertragen. Die Originaldatei und der eingegebene Name bleiben lokal. Zufällige 256-Bit-Schlüssel trennen Abruf und Verwaltung; serverseitig werden Schlüssel nur gehasht gespeichert. Der Browser speichert die Schlüssel vor dem ersten Schreibversuch. Ein Monat ersetzt denselben Monat. Widerruf löscht Kalender und Monatsdaten; lokal bereits importierte Kopien werden nicht entfernt. Ohne gesicherte Schlüssel ist nach Browserdatenlöschung keine Verwaltung möglich.
 
 Der Dienst ist separat über Sites bereitgestellt und wird nicht durch den Pages-Workflow aktualisiert. Die Service-Quellen liegen in `calendar-service/` (ohne Deployment-Identität).
+
+## Kalenderwahl und Google-Abo (0.7)
+
+Am Anfang wählt die Person Apple oder Google; iPhone/iPad und Android liefern nur eine änderbare Vorauswahl. Auf unbekannten Geräten wird gefragt. Die Auswahl wird lokal gemerkt. TimeTree und weitere Optionen bleiben erreichbar, sind aber eingeklappt.
+
+Google verwendet denselben widerrufbaren ICS-Feed wie Apple. Der Google-Link öffnet den Hinzufügen-Dialog im Desktop-Browser; ein bebilderungsfreier Kurzablauf mit «Per URL»-Fallback ist eingebaut. Google unterstützt das erstmalige Hinzufügen eines externen Abos nicht in seinen Handy-Apps. «Einrichtungslink teilen» übergibt ausschliesslich den Lese-Link im Fragment einer eigenen Einrichtungsseite; kein Verwaltungsschlüssel wird weitergegeben. Google bestimmt das Abrufintervall. Es gibt keine OAuth-Schreibintegration und keine sofortige Synchronisationszusage.
+
+Verifiziert: Browserablauf für Kalenderwahl/Wechsel und Einrichtungsseite sowie automatisierte Tests. Eine tatsächliche Anmeldung und Abo-Bestätigung in einem Google-Konto erfolgt durch die jeweilige Person.

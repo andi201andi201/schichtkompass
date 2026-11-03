@@ -1,3 +1,4 @@
+import {initialCalendar,showGoogleSetup} from './calendar-choice.js';
 import {setupSubscription} from './subscription.js';
 import {MONTHS,dayCount,normalise,featureDistance,groupSymbols,validateDefinition,shiftMinutes,makeICS,detectGrid,findPerson,pad} from './core.js';
 import {imagePlacements,imageAtCell,pixelRGBA} from './pdf-images.js';
@@ -23,7 +24,7 @@ function parseProfile(p){if(![1,2].includes(p.version)||!Array.isArray(p.symbols
 let pdfModule;
 const assetPath=path=>new URL(path,document.baseURI).href;
 async function pdfjs(){if(!pdfModule){pdfModule=await import(assetPath('./vendor/pdfjs/pdf.min.mjs'));pdfModule.GlobalWorkerOptions.workerSrc=assetPath('./vendor/pdfjs/pdf.worker.min.mjs')}return pdfModule}
-async function openFile(file){if(!file||state.busy)return;clearCalendarFile();if(file.size>25*1024*1024){notice('Die Datei ist grösser als 25 MB. Bitte verwende einen kleineren Plan.','error');return}const token=++state.loadId;setBusy(true,'Datei wird auf deinem Gerät geöffnet …');try{if(state.pdf)await state.pdf.destroy();state.pdf=null;state.items=[];state.placements=[];state.pdfPage=null;state.groups=[];state.cells=[];state.overrides={};state.rect=null;state.grid=null;state.isDemo=false;state.catalogMode=false;state.maxStep=1;state.fileName=file.name;$('#confirmed').checked=false;$('#export-success').hidden=true;
+async function openFile(file){if(!file||state.busy)return;if(!$('#calendar-target').value){notice('Wähle zuerst oben deinen Kalender aus.','error');return;}clearCalendarFile();if(file.size>25*1024*1024){notice('Die Datei ist grösser als 25 MB. Bitte verwende einen kleineren Plan.','error');return}const token=++state.loadId;setBusy(true,'Datei wird auf deinem Gerät geöffnet …');try{if(state.pdf)await state.pdf.destroy();state.pdf=null;state.items=[];state.placements=[];state.pdfPage=null;state.groups=[];state.cells=[];state.overrides={};state.rect=null;state.grid=null;state.isDemo=false;state.catalogMode=false;state.maxStep=1;state.fileName=file.name;$('#confirmed').checked=false;$('#export-success').hidden=true;
  if(file.type==='application/pdf'||/\.pdf$/i.test(file.name)){const lib=await pdfjs();const bytes=new Uint8Array(await file.arrayBuffer());state.pdf=await lib.getDocument({data:bytes,cMapUrl:assetPath('./vendor/pdfjs/cmaps/'),cMapPacked:true,standardFontDataUrl:assetPath('./vendor/pdfjs/standard_fonts/'),isEvalSupported:false}).promise;if(token!==state.loadId)return;state.pages=state.pdf.numPages;state.page=1;fillPages();if(normalise($('#person').value).length<3)await renderPage(1);else{state.page=0;canvas.width=canvas.height=0}}else{const url=URL.createObjectURL(file);try{const img=new Image();img.src=url;await img.decode();if(img.naturalWidth*img.naturalHeight>45000000)throw new Error('Das Bild ist zu gross. Bitte verwende einen kleineren Screenshot.');const factor=Math.min(1,3600/img.naturalWidth,5000/img.naturalHeight);canvas.width=Math.round(img.naturalWidth*factor);canvas.height=Math.round(img.naturalHeight*factor);ctx.drawImage(img,0,0,canvas.width,canvas.height);state.pages=1;state.page=1;fillPages();syncCanvas();$('#find-row').disabled=true;$('#source-info').textContent='Bild geöffnet. Markiere die Dienstkästchen deiner Zeile manuell.'}finally{URL.revokeObjectURL(url)}}
  goto(1);notice('Datei lokal geöffnet. Prüfe Monat und Jahr, bevor du deine Zeile auswählst.','success');$('#source-info').textContent=state.pdf?`${file.name} · ${state.pages} ${state.pages===1?'Seite':'Seiten'}`:$('#source-info').textContent;updateRect();
  }catch(e){notice(e.name==='PasswordException'?'Dieses PDF ist passwortgeschützt. Bitte verwende eine freigegebene, ungeschützte Kopie.':`Die Datei konnte nicht geöffnet werden. ${e.message||'Bitte versuche eine PDF-, JPG- oder PNG-Datei.'}`,'error')}finally{setBusy(false);$('#file-input').value=''}if(state.pdf&&normalise($('#person').value).length>=3){await $('#find-row').onclick();if(state.rect)analyse()}}
@@ -95,7 +96,7 @@ function calendarFileName(){return`SchichtKompass-${year()}-${pad(month())}${sta
 async function calendarContent(){return makeICS({year:year(),month:month(),entries:entries(),identity:$('#person').value,location:$('#location').value.trim(),reminder:$('#reminder').value})}
 function updateCalendarGuide(){
  const target=$('#calendar-target').value,timetree=target.startsWith('timetree'),ios=target==='iphone'||target==='timetree-ios',shared=$('#timetree-sharing').value==='shared';
- $('#timetree-mode').hidden=!timetree;
+ $('#timetree-mode').hidden=!timetree;$('#timetree-help').hidden=!timetree;$('#calendar-guide').hidden=!timetree;$('#selected-calendar-name').textContent=$('#calendar-target').selectedOptions[0]?.textContent||'Bitte auswählen';
  $('#download').innerHTML=timetree?'Kalenderdatei für TimeTree erstellen <span>↓</span>':'Kalenderdatei erstellen <span>↓</span>';
  const apple='<li>Prüfe deinen Dienstplan und bestätige unten die Speicherung für das Abo.</li><li>Tippe auf «Kalender-Abo erstellen», danach auf «Im iPhone-Kalender abonnieren» und bestätige im iPhone.</li>';
  const android='<li>Importiere die unten erstellte .ics-Datei in einen separaten Google-Kalender «SchichtKompass». Der Google-Import erfolgt am Computer unter Einstellungen → Importieren &amp; Exportieren. Eine Kalender-App mit .ics-Import kann die Datei auch auf dem Handy übernehmen.</li><li>Prüfe, ob die Termine im Kalender deines Android-Handys angezeigt werden.</li>';
@@ -115,7 +116,7 @@ function updateCalendarGuide(){
  clearCalendarFile();
 }
 $('#confirmed').onchange=updateExport;
-$('#calendar-target').onchange=updateCalendarGuide;
+$('#calendar-target').onchange=()=>{rememberCalendar($('#calendar-target').value);updateCalendarGuide();refreshSubscription?.()};
 $('#location').oninput=clearCalendarFile;$('#reminder').onchange=clearCalendarFile;
 $('#timetree-sharing').onchange=updateCalendarGuide;
 $('#download').onclick=async()=>{if(!exportAllowed())return;try{const content=await calendarContent();clearCalendarFile();calendarFileURL=URL.createObjectURL(new Blob([content],{type:'text/calendar;charset=utf-8'}));$('#export-success').hidden=false;$('#export-success').textContent=$('#calendar-target').value.startsWith('timetree')?'Kalenderdatei erstellt. Noch nicht in TimeTree importiert: Folge der Anleitung oben über deinen Gerätekalender.':'Kalenderdatei erstellt. Übernimm sie mit der Anleitung oben in deinen Kalender. Der Export aktualisiert sich nicht automatisch.';const fileLink=document.createElement('a');fileLink.href=calendarFileURL;fileLink.download=calendarFileName();fileLink.textContent='Kalenderdatei herunterladen (.ics)';fileLink.className='calendar-file-link';$('#export-success').append(document.createElement('br'),fileLink);fileLink.click();notice('Kalenderdatei bereit. Falls der Download nicht startet, tippe unten auf den Dateilink.','success')}catch(e){notice(e.message,'error')}};
@@ -126,4 +127,13 @@ $('#reset').onclick=async()=>{clearCalendarFile();++state.loadId;if(state.pdf)aw
 $('#start-person').oninput=()=>{$('#person').value=$('#start-person').value};$('#person').oninput=()=>{$('#start-person').value=$('#person').value};
 goto(0);
 
-var refreshSubscription=setupSubscription({canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
+var refreshSubscription=setupSubscription({getTarget:()=>$('#calendar-target').value,canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
+
+function rememberCalendar(value){try{localStorage.setItem('schichtkompass-calendar-choice',value)}catch{}for(const radio of document.querySelectorAll('[name="calendar-choice"]'))radio.checked=radio.value===value;$('#file-input').disabled=!value;$('#dropzone').setAttribute('aria-disabled',String(!value));}
+let remembered;try{remembered=localStorage.getItem('schichtkompass-calendar-choice')}catch{}
+$('#calendar-target').value=initialCalendar(remembered,navigator);rememberCalendar($('#calendar-target').value);
+if(!remembered&&$('#calendar-target').value)$('#choice-hint').textContent='Für dein Gerät vorausgewählt. Nutzt du einen anderen Kalender? Tippe ihn an.';
+for(const radio of document.querySelectorAll('[name="calendar-choice"]'))radio.onchange=()=>{rememberCalendar(radio.value);$('#calendar-target').value=radio.value;updateCalendarGuide();refreshSubscription()};
+updateCalendarGuide();refreshSubscription();showGoogleSetup();
+
+window.addEventListener('hashchange',showGoogleSetup);
