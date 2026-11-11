@@ -7,12 +7,12 @@ const registry=JSON.parse(readFileSync(new URL('../dist/zgks-legend-data.json',i
 const ref=id=>registry.symbols.find(r=>r.id===String(id));
 const symbol=(id,extra={})=>({...ref(id),...extra});
 const group=(id,extra={})=>annotateZGKS(symbol(id,extra),registry);
-const definition=(id,options={},extra={},profiles=[])=>zgksDefinition(group(id,extra),profiles,registry,{year:2027,month:1,timesConfirmed:true,...options});
+const definition=(id,options={},extra={},profiles=[])=>zgksDefinition(group(id,extra),profiles,registry,{year:2027,month:1,...options});
 
-test('ZGKS is selected by default; remembered opt-out and time-scope confirmation are respected',()=>{
- assert.deepEqual(initialZGKSSettings(null),{enabled:true,timesConfirmed:false});
- assert.deepEqual(initialZGKSSettings({enabled:false,timesConfirmed:true}),{enabled:false,timesConfirmed:true});
- assert.deepEqual(initialZGKSSettings({enabled:'false',timesConfirmed:'true'}),{enabled:true,timesConfirmed:false});
+test('ZGKS is selected by default and a remembered opt-out is respected',()=>{
+ assert.deepEqual(initialZGKSSettings(null),{enabled:true});
+ assert.deepEqual(initialZGKSSettings({enabled:false,timesConfirmed:true}),{enabled:false});
+ assert.deepEqual(initialZGKSSettings({enabled:'false',timesConfirmed:'true'}),{enabled:true});
 });
 test('Official legend contains all 54 individually identified icons with source dates and valid definitions',()=>{
  assert.equal(registry.symbols.length,54);assert.equal(new Set(registry.symbols.map(r=>r.id)).size,54);
@@ -39,9 +39,9 @@ test('Documented presence times are used instead of credited hours',()=>{
  const expected={2:['07:00','16:06'],182:['07:00','16:06'],198:['06:45','15:51'],3434:['10:00','19:06'],2650:['13:54','23:00'],2671:['12:54','22:00'],1470:['22:10','07:11'],146:['07:00','16:06'],2146:['13:54','23:00'],1146:['22:10','07:11'],4562:['08:00','16:54'],4714:['14:45','17:00']};
  for(const [id,times]of Object.entries(expected)){const d=definition(id).definition;assert.equal(d.type,'shift');assert.deepEqual([d.start,d.end],times);}
 });
-test('Presence times require one scope confirmation and never apply before January 2027',()=>{
- assert.equal(definition(182,{timesConfirmed:false}).definition.type,'');
- assert.equal(definition(182,{timesConfirmed:true}).definition.type,'shift');
+test('Official PEP times apply without confirmation but never before January 2027',()=>{
+ assert.equal(definition(182).definition.type,'shift');
+ assert.equal(definition(182,{timesConfirmed:false}).definition.type,'shift');
  const old=definition(182,{year:2026,month:12});assert.equal(validateDefinition(old.definition),false);assert.equal(old.definition.start,'');assert.match(old.reason,/2027/);
 });
 test('Absences use all-day dates, never credit hours as clock times, and respect October 2026 start',()=>{

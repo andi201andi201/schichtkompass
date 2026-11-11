@@ -3,7 +3,7 @@ import {contextFor,contextMatches} from './duty-context.js';
 
 export const ZGKS_SETTINGS_KEY='schichtkompass-zgks-v1';
 export function initialZGKSSettings(saved){
- return {enabled:typeof saved?.enabled==='boolean'?saved.enabled:true,timesConfirmed:saved?.timesConfirmed===true};
+ return {enabled:typeof saved?.enabled==='boolean'?saved.enabled:true};
 }
 // Full icon matching deliberately retains colours and underlines. E in red,
 // green or blue and S/M in presence vs absence must never share a code-only key.
@@ -23,7 +23,7 @@ export function annotateZGKS(symbol,registry){
  return {...symbol,...context,recognizedCode:ref.type==='skip'?'':ref.code,serviceKey:ref.type==='skip'?'free':'zgks:'+ref.id+(context.contextKey==='home'?'':'|'+context.contextKey)};
 }
 export function zgksIdFor(group){return /^zgks:(\d+)(?:\||$)/.exec(group.serviceKey||'')?.[1]||'';}
-export function zgksDefinition(group,profiles,registry,{year,month,timesConfirmed}){
+export function zgksDefinition(group,profiles,registry,{year,month}){
  const id=zgksIdFor(group),ref=registry.symbols.find(r=>r.id===id);if(!ref)return null;
  const date=String(year).padStart(4,'0')+'-'+String(month).padStart(2,'0')+'-01';
  const valid=date>=ref.validFrom,period=(valid?'from:':'before:')+ref.validFrom;
@@ -32,7 +32,6 @@ export function zgksDefinition(group,profiles,registry,{year,month,timesConfirme
  const extra=group.contextKey&&group.contextKey!=='home';
  let reason='';
  if(!valid)reason='Diese Vorlage gilt erst ab '+(ref.kind==='presence'?'1. Januar 2027':'1. Oktober 2026')+'. Bitte die Angaben für diesen Plan ergänzen.';
- else if(ref.kind==='presence'&&!timesConfirmed)reason='Bestätige einmal die Zeitenvorlage für deine Abteilung oder trage deine Zeiten selbst ein.';
  else if(extra)reason='Abteilung oder Zusatz beim ersten Mal bestätigen. Dafür ist eine eigene Zuordnung nötig.';
  const definition={code:ref.code,name:ref.name,type:reason?'':ref.type,start:valid?ref.start:'',end:valid?ref.end:'',department:group.departmentLabel||'',otherDepartment:!!group.otherDepartment,requiresDepartment:!!group.requiresDepartment};
  return {definition,period,id,source:'official',reason};
