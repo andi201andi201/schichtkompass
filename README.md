@@ -59,3 +59,30 @@ Die Quelldaten können mit `python scripts/build-zgks-legend.py <presence.pdf> <
 ## Datenfluss
 
 PDFs und Bilder werden über File/ArrayBuffer, PDF.js und Canvas lokal verarbeitet. Es gibt keinen KI-/OCR-Serveraufruf. Der PDF-Code und die Symbolvorlagen werden von derselben Website geladen. Nur nach aktiver Zustimmung zum Kalender-Abo wird die erzeugte ICS-Datei der ausgewählten persönlichen Dienste an den separaten Kalenderdienst gesendet. Ein normaler Datei-Download bleibt lokal; die anschliessende Übernahme in einen Cloud-Kalender erfolgt beim gewählten Anbieter. Hosting-Verbindungsdaten sowie lokale Speicherungen und Abo-Schlüssel sind in den Datenschutzhinweisen beschrieben. Dies ersetzt keine betriebliche Freigabe.
+
+## Eigene Domain (12.11.2026)
+
+Öffentliche Hauptadresse: **https://schichtkompass.bb-planer.ch/**.
+Die Subdomain ist bei Infomaniak per CNAME und zwei TXT-Bestätigungen verbunden;
+HTTPS ist aktiv. Die bisherigen Einträge der Hauptdomain wurden nicht geändert.
+
+Das Frontend wird als eigener statischer Sites-Build bereitgestellt:
+`appgprj_6af4fb741ed081918d5cc861ea675c95`.
+Die GitHub-Pages-Adresse bleibt separat verfügbar. Bei App-Änderungen beide
+Veröffentlichungen aktualisieren: GitHub Actions aktualisiert nur GitHub Pages.
+Für die eigene Domain die aktuelle Site-Quelle über den Sites-Quellhelfer öffnen,
+die App-Quellen dieses Repositorys übernehmen, die vorhandene Projekt-ID in
+`.openai/hosting.json` erhalten, `npm run check`, `npm test` und `npm run build`
+ausführen und das statische `dist/`-Artefakt speichern und veröffentlichen.
+Keinen Worker-Proxy auf GitHub Pages verwenden; die Domain liefert eigene Assets.
+
+Der Kalenderdienst bleibt ein separates Projekt:
+`appgprj_6ae923b7cedc81918b864a5eca3b8548`.
+Seine CORS-Liste erlaubt die GitHub-Origin, die neue Domain und die Sites-Adresse
+exakt; unbekannte Origins erhalten keine Freigabe. Freigabelinks verwenden die
+aktuell geöffnete App-Adresse. Die geheimen Abo-Links bleiben unverändert.
+
+Browserdaten sind an die jeweilige Website-Adresse gebunden. Vor einem Wechsel
+können Nutzer ihre eigene Legende und Abo-Verwaltungsschlüssel an der bisherigen
+Adresse sichern und an der neuen Adresse wiederherstellen. Die Schlüsseldatei
+ist vertraulich und gehört niemals ins Repository oder in öffentliche Links.
