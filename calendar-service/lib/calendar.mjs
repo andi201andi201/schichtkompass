@@ -1,4 +1,4 @@
-const origin='https://andi201andi201.github.io';
+const allowedOrigins=new Set(['https://andi201andi201.github.io','https://schichtkompass.bb-planer.ch','https://schichtkompass-domain.andi201andi201.chatgpt.site']);
 const tokenOK=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 export async function hash(value){return [...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value)))].map(b=>b.toString(16).padStart(2,'0')).join('')}
 export function validateICS(ics,month){
@@ -29,7 +29,8 @@ export function mergeCalendars(rows){
 }
 export async function handle(request,db){
  const url=new URL(request.url),parts=url.pathname.split('/').filter(Boolean);
- const headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff','Access-Control-Allow-Origin':origin,'Vary':'Origin'};
+ const origin=request.headers.get('Origin');
+ const headers={'Cache-Control':'no-store','Referrer-Policy':'no-referrer','X-Content-Type-Options':'nosniff',...(allowedOrigins.has(origin)?{'Access-Control-Allow-Origin':origin}:{}),'Vary':'Origin'};
  const reply=(data,status=200)=>Response.json(data,{status,headers});
  if(parts[0]==='feed'){
   const [_,id,file]=parts,token=file?.replace(/\.ics$/,'');
@@ -40,7 +41,7 @@ export async function handle(request,db){
   return new Response(request.method==='HEAD'?null:mergeCalendars(data.results),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'inline; filename="SchichtKompass.ics"'}});
  }
  if(parts[0]!=='api'||parts[1]!=='calendar')return reply({error:'Nicht gefunden'},404);
- if(request.headers.get('Origin')!==origin)return reply({error:'Ursprung nicht erlaubt'},403);
+ if(!allowedOrigins.has(origin))return reply({error:'Ursprung nicht erlaubt'},403);
  if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'PUT, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
  if(request.method==='PUT'){
   const now=Date.now(),bucket=Math.floor(now/3600000),ip=request.headers.get('cf-connecting-ip')||'unknown';

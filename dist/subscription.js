@@ -3,7 +3,7 @@ const API='https://schichtkompass-calendar.andi201andi201.chatgpt.site';
 const KEY='schichtkompass-subscription-v1';
 const random=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
 async function identity(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value.trim().toLowerCase().replace(/\s+/g,' ')))),b=>b.toString(16).padStart(2,'0')).join('')}
-export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDemo,notify,getTarget=()=>'iphone'}){
+export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDemo,notify,getTarget=()=>'iphone',getPageBase=()=>new URL('./',location.href).href}){
  const $=id=>document.getElementById(id);let busy=false,saved;
  try{saved=JSON.parse(localStorage.getItem(KEY)||'null')}catch{}
  if(saved&&![saved.id,saved.edit,saved.read,saved.identity].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)))saved=null;
@@ -26,7 +26,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
   $('subscription-links').hidden=!saved?.published;
   $('subscription-revoke').hidden=!saved;
   $('subscription-revoke').disabled=busy;
-  if(saved?.published){const https=API+'/feed/'+saved.id+'/'+saved.read+'.ics';const links=calendarLinks(https,'https://andi201andi201.github.io/schichtkompass/');$('subscription-open').href=isGoogle?links.google:links.apple;$('subscription-url').value=https;}
+  if(saved?.published){const https=API+'/feed/'+saved.id+'/'+saved.read+'.ics';const links=calendarLinks(https,getPageBase());$('subscription-open').href=isGoogle?links.google:links.apple;$('subscription-url').value=https;}
  }
  $('subscription-consent').onchange=paint;
  async function send(method,body){const response=await fetch(API+'/api/calendar/'+saved.id,{method,headers:{Authorization:'Bearer '+saved.edit,'Content-Type':'application/json'},body:body&&JSON.stringify(body)});if(!response.ok){let message='Kalenderdienst momentan nicht erreichbar. Bitte erneut versuchen.';try{message=(await response.json()).error||message}catch{}throw Error(message)}}
@@ -53,7 +53,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
  $('subscription-copy').onclick=async()=>{try{await navigator.clipboard.writeText($('subscription-url').value);notify('Privaten Abo-Link kopiert. Wer ihn besitzt, kann deine Termine lesen.','success')}catch{$('subscription-url').select();notify('Link markieren und kopieren.')}};
  $('google-share').onclick=async()=>{
   if(!saved?.published)return;
-  const feed=API+'/feed/'+saved.id+'/'+saved.read+'.ics',link=calendarLinks(feed,'https://andi201andi201.github.io/schichtkompass/').setup;
+  const feed=API+'/feed/'+saved.id+'/'+saved.read+'.ics',link=calendarLinks(feed,getPageBase()).setup;
   try{if(navigator.share){await navigator.share({title:'SchichtKompass in Google Kalender einrichten',text:'Diesen persönlichen Link am Computer öffnen. Er erlaubt das Lesen meiner Dienste.',url:link});$('google-share-status').textContent='Link übergeben. Öffne ihn am Computer.'}else{await navigator.clipboard.writeText(link);$('google-share-status').textContent='Einrichtungslink kopiert. Übertrage ihn auf deinen Computer.'}}
   catch(e){if(e.name!=='AbortError'){$('subscription-url').select();notify('Teilen nicht möglich. Kopiere deinen Kalender-Link unten und füge ihn am Computer in Google Kalender unter «Per URL» hinzu.')}}
  };

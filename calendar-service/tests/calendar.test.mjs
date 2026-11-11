@@ -16,3 +16,13 @@ test('Create, update same month, read-only link, rejection and revocation',async
  assert.equal((await handle(req('DELETE',null,read),db)).status,403);
  assert.equal((await handle(req('DELETE'),db)).status,200);assert.equal((await feed()).status,404);
 });
+test('Only the original and explicitly registered app origins can manage subscriptions',async()=>{
+ for(const allowed of [origin,'https://schichtkompass.bb-planer.ch','https://schichtkompass-domain.andi201andi201.chatgpt.site']){
+  const response=await handle(new Request(base+'/api/calendar/'+id,{method:'OPTIONS',headers:{Origin:allowed}}),db);
+  assert.equal(response.status,204);assert.equal(response.headers.get('Access-Control-Allow-Origin'),allowed);assert.equal(response.headers.get('Vary'),'Origin');
+ }
+ for(const denied of ['https://evil.test','https://schichtkompass.bb-planer.ch.evil.test','http://schichtkompass.bb-planer.ch','null',null]){
+  const response=await handle(new Request(base+'/api/calendar/'+id,{method:'OPTIONS',headers:denied?{Origin:denied}:{}}),db);
+  assert.equal(response.status,403);assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
+ }
+});
