@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "test": "node --test tests/*.test.mjs",
-    "check": "node --check dist/app.js && node --check dist/core.js && node --check dist/pdf-images.js && node --check dist/symbol-registry.js && node --check dist/code-reader.js && node --check dist/duty-context.js && node --check dist/raster-notes.js",
+    "check": "node --check dist/app.js && node --check dist/core.js && node --check dist/pdf-images.js && node --check dist/symbol-registry.js && node --check dist/code-reader.js && node --check dist/duty-context.js && node --check dist/raster-notes.js && node --check dist/google-calendar.js && node --check dist/google-transfer-ui.js",
     "build": "node scripts/build-static.mjs"
   },
   "dependencies": {

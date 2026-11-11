@@ -4,7 +4,7 @@ Browser-local pilot for importing the user's own shifts from a hospital POLYPOIN
 
 The main flow asks for a full name and a PDF. It locates the date grid and the person's row across pages, then reads the exact embedded image objects from the PDF. For screenshot/image input, row selection is manual. Unknown symbols require an explicit definition; no clinical institution's shift hours are guessed. A separate gallery allows preparing every symbol in advance and sharing a legend JSON file.
 
-Definitions, tiny symbol templates and no full roster are optionally stored in localStorage. Profile import is schema-checked. Calendar export contains only reviewed personal entries. iCalendar export handles Europe/Zurich, overnight shifts, all-day dates and UTF-8 folding. It is a snapshot, not a subscription, and repeated imports may duplicate events depending on the calendar client. Google Calendar's regular ICS importer is desktop-based. Native mobile/calendar API integration is outside this pilot.
+Definitions, tiny symbol templates and no full roster are optionally stored in localStorage. Profile import is schema-checked. Calendar export contains only reviewed personal entries. iCalendar export handles Europe/Zurich, overnight shifts, all-day dates and UTF-8 folding. It is a snapshot, not a subscription, and repeated imports may duplicate events depending on the calendar client. Google Calendar's regular ICS importer is desktop-based. The optional direct Google Calendar integration is prepared in version 0.8 and requires the operator’s own OAuth client configuration before use.
 
 Run `npm test` for calendar and recognition logic checks. The static files in `dist` are deployed directly. Browser QA used the fictional demo and the supplied PDF locally. The original PDF is deliberately outside the repository. Shift definitions must be confirmed by the user before real use. The app is not an official hospital service.
 
@@ -45,3 +45,9 @@ Am Anfang wählt die Person Apple oder Google; iPhone/iPad und Android liefern n
 Google verwendet denselben widerrufbaren ICS-Feed wie Apple. Der Google-Link öffnet den Hinzufügen-Dialog im Desktop-Browser; ein bebilderungsfreier Kurzablauf mit «Per URL»-Fallback ist eingebaut. Google unterstützt das erstmalige Hinzufügen eines externen Abos nicht in seinen Handy-Apps. «Einrichtungslink teilen» übergibt ausschliesslich den Lese-Link im Fragment einer eigenen Einrichtungsseite; kein Verwaltungsschlüssel wird weitergegeben. Google bestimmt das Abrufintervall. Es gibt keine OAuth-Schreibintegration und keine sofortige Synchronisationszusage.
 
 Verifiziert: Browserablauf für Kalenderwahl/Wechsel und Einrichtungsseite sowie automatisierte Tests. Eine tatsächliche Anmeldung und Abo-Bestätigung in einem Google-Konto erfolgt durch die jeweilige Person.
+
+## Direkte Google-Übertragung (0.8, Freischaltung ausstehend)
+
+Die vorbereitete Erweiterung schreibt geprüfte Dienste direkt in einen eigenen Google-Kalender, auch aus einem mobilen Browser. Ein erneuter Upload aktualisiert denselben Monat und entfernt inzwischen freie Tage. Die Konfiguration, Grenzen und erforderlichen echten Konto-Tests stehen in [GOOGLE_SETUP.md](GOOGLE_SETUP.md). Solange `dist/google-config.js` keine gültige eigene Client-ID enthält, bleibt die direkte Übertragung gesperrt; es gibt keine vorgetäuschte erfolgreiche Google-Verbindung.
+
+Die Anmeldung nutzt Google Identity Services. Tokens bleiben im Arbeitsspeicher. Die App liest Kalender-Metadaten zur Wiedererkennung und bearbeitet nur von ihr erstellte Kalender. Keine Originalpläne werden an Google oder den SchichtKompass-Server gesendet. Die eigenständige Datenschutzseite liegt in `dist/privacy.html`.
