@@ -45,3 +45,13 @@ Am Anfang wählt die Person Apple oder Google; iPhone/iPad und Android liefern n
 Google verwendet denselben widerrufbaren ICS-Feed wie Apple. Der Google-Link öffnet den Hinzufügen-Dialog im Desktop-Browser; ein bebilderungsfreier Kurzablauf mit «Per URL»-Fallback ist eingebaut. Google unterstützt das erstmalige Hinzufügen eines externen Abos nicht in seinen Handy-Apps. «Einrichtungslink teilen» übergibt ausschliesslich den Lese-Link im Fragment einer eigenen Einrichtungsseite; kein Verwaltungsschlüssel wird weitergegeben. Google bestimmt das Abrufintervall. Es gibt keine OAuth-Schreibintegration und keine sofortige Synchronisationszusage.
 
 Verifiziert: Browserablauf für Kalenderwahl/Wechsel und Einrichtungsseite sowie automatisierte Tests. Eine tatsächliche Anmeldung und Abo-Bestätigung in einem Google-Konto erfolgt durch die jeweilige Person.
+
+## ZGKS-Legende (0.9)
+
+«Ich arbeite im Zuger Kantonsspital» ist beim ersten Öffnen vorausgewählt. Die Auswahl und eine ausdrückliche Bestätigung der Zeitenvorlage werden lokal gemerkt. Die App enthält 54 zugeschnittene Symbolvorlagen aus den bereitgestellten Dokumenten, ohne die vollständigen PDFs oder ihre Autorenmetadaten zu veröffentlichen. Die vollständige Legende ist in der App lesbar.
+
+Die Präsenz-Definitionen sind für **Chirurgie Nord ab 1. Januar 2027** beschriftet. Diese Uhrzeiten werden nur ab diesem Plandatum und nach einmaliger Bestätigung für die eigene Abteilung automatisch freigegeben. Für ältere Pläne und abweichende Abteilungen bleibt eine eigene Zuordnung möglich. Die Absenz-Definitionen des Pflege Pools gelten laut Dokument bereits **ab 1. Oktober 2026**, auch wenn der Dateiname 2027 nennt. Absenzen ohne Beginn/Ende werden ganztägig exportiert. Frei, Wunschfrei, Kompensation und leere Platzhalter erzeugen keine Termine. Soll-/Gutschriftstunden werden nicht als Uhrzeiten ausgelegt.
+
+Gleiche Buchstaben in verschiedenen Farben, Unterstreichungen und Dienstvarianten werden über die individuelle PEP-Kennung getrennt. Abteilungs-/Zusatzkombinationen benötigen weiterhin eine eigene erste Zuordnung. Eigene Anpassungen sind an Symbol, Kontext und Gültigkeitszeitraum gebunden; eine alte codebasierte E-Zuordnung kann die drei neuen E-Dienste nicht überschreiben. Bestätigte Standarddienste überspringen die Legendeneingabe und führen zur Monatskontrolle.
+
+Die Quelldaten können mit `python scripts/build-zgks-legend.py <presence.pdf> <absence.pdf>` neu erzeugt werden (PyMuPDF/Pillow erforderlich). Der normale npm-Build benötigt die PDFs nicht. Automatisierte Tests prüfen alle 54 Symbole, Zeiträume, Farben und Exportregeln. Browser-QA nutzt einen fiktiven Januarplan 2027 mit den zugeschnittenen Symbolen; es werden keine echten Personaldaten verwendet.
