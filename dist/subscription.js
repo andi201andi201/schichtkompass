@@ -3,14 +3,14 @@ const API='https://schichtkompass-calendar.andi201andi201.chatgpt.site';
 const KEY='schichtkompass-subscription-v1',SPLIT_KEY='schichtkompass-separate-duties-v1';
 const random=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
 async function identity(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value.trim().toLowerCase().replace(/\s+/g,' ')))),b=>b.toString(16).padStart(2,'0')).join('')}
-const validServices=values=>Array.isArray(values)?values.filter(s=>s&&/^(legacy|[a-f0-9]{32})$/.test(s.id)&&typeof s.label==='string'&&s.label.length<=600&&Number.isInteger(s.count)&&s.count>0).map(s=>({id:s.id,label:s.label,count:s.count})):[];
+const validServices=values=>Array.isArray(values)?values.filter(s=>s&&/^(frueh|spaet|nacht|sonstiges)$/.test(s.id)&&typeof s.label==='string'&&s.label.length<=600&&Number.isInteger(s.count)&&s.count>=0).map(s=>({id:s.id,label:s.label,count:s.count})):[];
 export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDemo,notify,getServices=()=>[],getTarget=()=>'iphone',getPageBase=()=>new URL('./',location.href).href}){
  const $=id=>document.getElementById(id);let busy=false,saved,catalog=[],catalogLoaded=false,catalogLoading=false,catalogRequest=0;
  try{saved=JSON.parse(localStorage.getItem(KEY)||'null');$('subscription-split').checked=localStorage.getItem(SPLIT_KEY)==='true'}catch{}
  if(saved&&![saved.id,saved.edit,saved.read,saved.identity].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)))saved=null;
  let lastMonth='';
  const google=()=>['google','timetree-android'].includes(getTarget());
- const feed=(service='')=>API+'/feed/'+saved.id+'/'+saved.read+'.ics'+(service?'?dienst='+encodeURIComponent(service):'');
+ const feed=(service='')=>API+'/feed/'+saved.id+'/'+saved.read+'.ics'+(service?'?gruppe='+encodeURIComponent(service):'');
  function renderServices(){
   const split=$('subscription-split').checked,isGoogle=google();
   $('subscription-service-mode').hidden=!split;
@@ -18,7 +18,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
   if(!split)return;
   $('subscription-colour-help').textContent=isGoogle?'Jeden gewünschten Dienst separat in Google Kalender hinzufügen. Wähle danach für jeden Kalender eine Farbe. Für das erste Hinzufügen eines Abos benötigt Google einen Computer.':'Tippe bei jedem gewünschten Dienst auf «Abonnieren». Wähle danach in der iPhone-Kalender-App unter «Kalender» → ⓘ neben dem jeweiligen Dienst eine Farbe.';
   const services=catalogLoaded?catalog:validServices(getServices());
-  $('subscription-service-status').textContent=catalogLoading?'Gespeicherte Dienstarten werden geladen …':!saved?.published?'Erstelle zuerst das Abo. Danach kannst du die gewünschten Dienste einzeln abonnieren.':!services.length?'Für diesen Kalender sind noch keine Termine gespeichert.':services.some(s=>s.id==='legacy')?'«Bisherige Dienste» enthält ältere Monate ohne Dienstart. Speichere diese Pläne erneut, um auch sie nach Dienstart zu trennen.':'Einzel-Abos enthalten die passenden Dienste aus allen gespeicherten Monaten. Neue Dienstarten kannst du später zusätzlich abonnieren.';
+  $('subscription-service-status').textContent=catalogLoading?'Gespeicherte Dienstarten werden geladen …':!saved?.published?'Erstelle zuerst das Abo. Danach kannst du die gewünschten Dienste einzeln abonnieren.':!services.length?'Für diesen Kalender sind noch keine Termine gespeichert.':'Vier Kalender: Frühdienst, Spätdienst, Nachtdienst und Sonstiges. Genaue Dienstnamen und Abteilungen bleiben in den Terminen erhalten.';
   $('subscription-service-list').replaceChildren();
   for(const service of services){
    const card=document.createElement('article');card.className='service-subscription';
@@ -45,7 +45,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
   $('subscription-open').textContent=isGoogle?'Google Kalender am Computer öffnen':'Im iPhone-Kalender abonnieren';
   $('subscription-open').target=isGoogle?'_blank':'_self';
   $('subscription-open').rel='noopener noreferrer';
-  if(lastMonth)$('subscription-status').textContent='Monat '+lastMonth+' gespeichert. '+(split?'Abonniere die gewünschten Dienstarten in der Liste einzeln.':isGoogle?'Verbinde Google beim ersten Mal am Computer. Nutze dort dasselbe Konto wie auf deinem Handy.':'Tippe beim ersten Mal auf «Im iPhone-Kalender abonnieren» und bestätige dort.');
+  if(lastMonth)$('subscription-status').textContent='Monat '+lastMonth+' gespeichert. '+(split?'Abonniere die gewünschten Dienstgruppen in der Liste einzeln.':isGoogle?'Verbinde Google beim ersten Mal am Computer. Nutze dort dasselbe Konto wie auf deinem Handy.':'Tippe beim ersten Mal auf «Im iPhone-Kalender abonnieren» und bestätige dort.');
   $('subscribe-save').disabled=busy||!getTarget()||!canPublish()||!$('subscription-consent').checked||isDemo();
   $('subscribe-save').textContent=saved?.published?'Bestätigten Monat im Abo aktualisieren':'Kalender-Abo erstellen';
   $('subscription-links').hidden=!saved?.published;
@@ -60,7 +60,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
  async function send(method,body){const response=await fetch(API+'/api/calendar/'+saved.id,{method,headers:{Authorization:'Bearer '+saved.edit,'Content-Type':'application/json'},body:body&&JSON.stringify(body)});if(!response.ok){let message='Kalenderdienst momentan nicht erreichbar. Bitte erneut versuchen.';try{message=(await response.json()).error||message}catch{}throw Error(message)}return response.json()}
  async function loadCatalog(){
   const request=++catalogRequest;catalogLoading=true;renderServices();
-  try{const result=await send('GET');if(request===catalogRequest)catalog=validServices(result.services)}catch(e){if(request===catalogRequest)notify(e.message+' Die Einzel-Abos konnten nicht geladen werden.','error')}
+  try{const result=await send('GET');if(request===catalogRequest)catalog=validServices(result.groups)}catch(e){if(request===catalogRequest)notify(e.message+' Die Einzel-Abos konnten nicht geladen werden.','error')}
   finally{if(request===catalogRequest){catalogLoading=false;catalogLoaded=true;paint()}}
  }
  $('subscribe-save').onclick=async()=>{
@@ -76,7 +76,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
    localStorage.setItem(KEY,JSON.stringify(saved));
    const result=await send('PUT',{ics:content,month,readToken:saved.read});
    saved.published=true;localStorage.setItem(KEY,JSON.stringify(saved));
-   catalog=validServices(result.services);catalogLoaded=true;lastMonth=month;
+   catalog=validServices(result.groups);catalogLoaded=true;lastMonth=month;
   }catch(e){notify(e.message,'error')}finally{busy=false;paint()}
  };
  $('subscription-revoke').onclick=async()=>{

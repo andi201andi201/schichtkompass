@@ -1,4 +1,5 @@
 const allowedOrigins=new Set(['https://andi201andi201.github.io','https://schichtkompass.bb-planer.ch','https://schichtkompass-domain.andi201andi201.chatgpt.site']);
+import {DUTY_GROUPS,dutyGroup} from './duty-groups.js';
 const tokenOK=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const serviceOK=value=>value==='legacy'||/^[a-f0-9]{32}$/.test(value||'');
 const unfold=ics=>ics.replace(/\r\n[ \t]/g,'');
@@ -6,6 +7,12 @@ const events=ics=>unfold(ics).match(/BEGIN:VEVENT\r\n[\s\S]*?END:VEVENT\r\n/g)||
 const field=(event,key)=>new RegExp('^'+key+':([^\\r\\n]*)','m').exec(event)?.[1];
 const serviceID=event=>field(event,'X-SCHICHTKOMPASS-SERVICE')||'legacy';
 const unescape=value=>String(value||'').replace(/\\([nN,;\\])/g,(_,c)=>c==='n'||c==='N'?' ':c);
+const groupOK=value=>Object.hasOwn(DUTY_GROUPS,value||'');
+const groupID=event=>field(event,'X-SCHICHTKOMPASS-GROUP')||dutyGroup({name:unescape(field(event,'X-SCHICHTKOMPASS-SERVICE-NAME')||field(event,'SUMMARY')),type:/^DTSTART;VALUE=DATE:/m.test(event)?'allday':'shift'});
+export function listGroups(rows){
+ const counts=new Map();for(const row of rows)for(const event of events(row.ics)){const id=groupID(event);counts.set(id,(counts.get(id)||0)+1)}
+ return Object.entries(DUTY_GROUPS).map(([id,label])=>({id,label,count:counts.get(id)||0}));
+}
 function fold(line){let row='',size=0,rows=[];for(const c of line){const n=new TextEncoder().encode(c).length;if(size+n>75){rows.push(row);row=' ';size=1}row+=c;size+=n}rows.push(row);return rows.join('\r\n')}
 export function listServices(rows){
  const found=new Map();
@@ -20,7 +27,7 @@ export function validateICS(ics,month){
  if(typeof ics!=='string'||ics.length>65000||!/^(20\d{2})-(0[1-9]|1[0-2])$/.test(month))throw Error('Ungültiger Monat');
  const unfolded=ics.replace(/\r\n[ \t]/g,'');
  if(!unfolded.startsWith('BEGIN:VCALENDAR\r\n')||!unfolded.endsWith('END:VCALENDAR\r\n'))throw Error('Ungültiger Kalender');
- const allowed=new Set('BEGIN END VERSION PRODID CALSCALE X-WR-CALNAME X-WR-TIMEZONE TZID DTSTART DTEND TZOFFSETFROM TZOFFSETTO TZNAME RRULE UID DTSTAMP SUMMARY CLASS TRANSP LOCATION DESCRIPTION TRIGGER ACTION X-SCHICHTKOMPASS-SERVICE X-SCHICHTKOMPASS-SERVICE-NAME'.split(' '));
+ const allowed=new Set('BEGIN END VERSION PRODID CALSCALE X-WR-CALNAME X-WR-TIMEZONE TZID DTSTART DTEND TZOFFSETFROM TZOFFSETTO TZNAME RRULE UID DTSTAMP SUMMARY CLASS TRANSP LOCATION DESCRIPTION TRIGGER ACTION X-SCHICHTKOMPASS-SERVICE X-SCHICHTKOMPASS-SERVICE-NAME X-SCHICHTKOMPASS-GROUP'.split(' '));
  const stack=[];let count=0;
  for(const line of unfolded.trim().split('\r\n')){
   const pos=line.indexOf(':');if(pos<1)throw Error('Ungültige Zeile');
@@ -35,14 +42,15 @@ export function validateICS(ics,month){
   if(key==='ACTION'&&value!=='DISPLAY')throw Error('Ungültiger Alarm');
   if(key==='RRULE'&&stack.at(-1)!=='DAYLIGHT'&&stack.at(-1)!=='STANDARD')throw Error('Wiederholungen sind nicht erlaubt');
   if(key.startsWith('X-SCHICHTKOMPASS-SERVICE')&&(stack.at(-1)!=='VEVENT'||(key==='X-SCHICHTKOMPASS-SERVICE'&&!/^[a-f0-9]{32}$/.test(value))||(key==='X-SCHICHTKOMPASS-SERVICE-NAME'&&value.length>600)))throw Error('Ungültige Dienstart');
+  if(key==='X-SCHICHTKOMPASS-GROUP'&&(stack.at(-1)!=='VEVENT'||!groupOK(value)))throw Error('Ungültige Dienstgruppe');
  }
  if(stack.length||count>124)throw Error('Zu viele Termine');return ics;
 }
-export function mergeCalendars(rows,service=null){
+export function mergeCalendars(rows,service=null,group=null){
  const base=rows[0]?.ics; if(!base)return 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SchichtKompass//DE\r\nEND:VCALENDAR\r\n';
  let head=unfold(base).split('BEGIN:VEVENT')[0].replace('END:VCALENDAR\r\n','');
- if(service){const label=listServices(rows).find(s=>s.id===service)?.label||'Dienst',name='SchichtKompass · '+label;head=head.replace(/^X-WR-CALNAME:[^\r\n]*\r\n/gm,'');head+=fold('X-WR-CALNAME:'+name.replace(/\\/g,'\\\\').replace(/[,;]/g,c=>'\\'+c).replace(/[\r\n]/g,' '))+'\r\n';}
- return head.split('\r\n').filter(Boolean).map(fold).join('\r\n')+'\r\n'+rows.flatMap(r=>events(r.ics).filter(e=>!service||serviceID(e)===service)).map(e=>e.trimEnd().split('\r\n').map(fold).join('\r\n')+'\r\n').join('')+'END:VCALENDAR\r\n';
+ if(service||group){const label=group?DUTY_GROUPS[group]:listServices(rows).find(s=>s.id===service)?.label||'Dienst',name='SchichtKompass · '+label;head=head.replace(/^X-WR-CALNAME:[^\r\n]*\r\n/gm,'');head+=fold('X-WR-CALNAME:'+name.replace(/\\/g,'\\\\').replace(/[,;]/g,c=>'\\'+c).replace(/[\r\n]/g,' '))+'\r\n';}
+ return head.split('\r\n').filter(Boolean).map(fold).join('\r\n')+'\r\n'+rows.flatMap(r=>events(r.ics).filter(e=>(!service||serviceID(e)===service)&&(!group||groupID(e)===group))).map(e=>e.trimEnd().split('\r\n').map(fold).join('\r\n')+'\r\n').join('')+'END:VCALENDAR\r\n';
 }
 export async function handle(request,db){
  const url=new URL(request.url),parts=url.pathname.split('/').filter(Boolean);
@@ -52,11 +60,12 @@ export async function handle(request,db){
  if(parts[0]==='feed'){
   const [_,id,file]=parts,token=file?.replace(/\.ics$/,'');
   const services=url.searchParams.getAll('dienst'),service=services[0]||null;
-  if(parts.length!==3||[...url.searchParams.keys()].some(key=>key!=='dienst')||services.length>1||(services.length&&!serviceOK(service))||!tokenOK(id)||!tokenOK(token)||!['GET','HEAD'].includes(request.method))return reply({error:'Nicht gefunden'},404);
+  const groups=url.searchParams.getAll('gruppe'),group=groups[0]||null;
+  if(parts.length!==3||[...url.searchParams.keys()].some(key=>!['dienst','gruppe'].includes(key))||services.length+groups.length>1||(services.length&&!serviceOK(service))||(groups.length&&!groupOK(group))||!tokenOK(id)||!tokenOK(token)||!['GET','HEAD'].includes(request.method))return reply({error:'Nicht gefunden'},404);
   const row=await db.prepare('SELECT read_hash, updated FROM calendars WHERE id=?').bind(id).first();
   if(!row||row.read_hash!==await hash(token))return reply({error:'Nicht gefunden'},404);
   const data=await db.prepare('SELECT ics FROM months WHERE calendar=? ORDER BY month').bind(id).all();
-  return new Response(request.method==='HEAD'?null:mergeCalendars(data.results,service),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'inline; filename="SchichtKompass.ics"'}});
+  return new Response(request.method==='HEAD'?null:mergeCalendars(data.results,service,group),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'inline; filename="SchichtKompass.ics"'}});
  }
  if(parts[0]!=='api'||parts[1]!=='calendar')return reply({error:'Nicht gefunden'},404);
  if(!allowedOrigins.has(origin))return reply({error:'Ursprung nicht erlaubt'},403);
@@ -75,7 +84,7 @@ export async function handle(request,db){
  if(request.method==='GET'){
   if(!existing)return reply({error:'Nicht gefunden'},404);
   const data=await db.prepare('SELECT ics FROM months WHERE calendar=? ORDER BY month').bind(id).all();
-  return reply({services:listServices(data.results)});
+  return reply({services:listServices(data.results),groups:listGroups(data.results)});
  }
  if(request.method==='DELETE'){
   if(!existing)return reply({ok:true});
@@ -101,6 +110,6 @@ export async function handle(request,db){
    db.prepare('DELETE FROM months WHERE calendar=? AND month<?').bind(id,cutoff)
   ]);
   const data=await db.prepare('SELECT ics FROM months WHERE calendar=? ORDER BY month').bind(id).all();
-  return reply({ok:true,services:listServices(data.results)});
+  return reply({ok:true,services:listServices(data.results),groups:listGroups(data.results)});
  }catch{return reply({error:'Kalenderdaten ungültig. Monat und bestätigte Termine prüfen.'},400)}
 }

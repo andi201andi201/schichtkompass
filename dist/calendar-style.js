@@ -1,4 +1,5 @@
 import {calendarSummary,departmentForEntry} from './duty-context.js';
+import {DUTY_GROUPS,dutyGroup} from './duty-groups.js';
 
 const normal=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 function serviceHash(value){
@@ -17,6 +18,11 @@ export function serviceCatalog(entries){
  const found=new Map();
  for(const entry of entries){const service=serviceForEntry(entry);if(!service)continue;const row=found.get(service.id)||{...service,count:0};row.count++;found.set(service.id,row)}
  return [...found.values()].sort((a,b)=>a.label.localeCompare(b.label,'de-CH'));
+}
+export function colourGroupForEntry(entry){const id=dutyGroup(entry.definition);return {id,label:DUTY_GROUPS[id]}}
+export function colourGroupCatalog(entries){
+ const counts=new Map();for(const entry of entries){if(!entry.definition||entry.definition.type==='skip')continue;const group=colourGroupForEntry(entry),row=counts.get(group.id)||{...group,count:0};row.count++;counts.set(group.id,row)}
+ return Object.entries(DUTY_GROUPS).map(([id,label])=>counts.get(id)||{id,label,count:0});
 }
 export function emojiForEntry(entry){
  const name=normal(entry.definition?.name),code=normal(entry.definition?.code),shift=entry.definition?.type==='shift';

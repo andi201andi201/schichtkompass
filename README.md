@@ -163,3 +163,20 @@ DELETE und OPTIONS exportieren. Das separate Backend muss vor dem Frontend
 veröffentlicht werden. Die bestehende Google-Einschränkung für das erstmalige
 Hinzufügen externer Abos bleibt unverändert; es ist weiterhin keine Google-OAuth-
 Schreibintegration. Die konkreten Abrufintervalle liegen beim Kalenderanbieter.
+
+
+## Vier optionale Farbgruppen (0.9.5)
+
+Der Farbmodus bietet genau vier Kalender: Frühdienst, Spätdienst, Nachtdienst
+und Sonstiges. Die entsprechende Stroke-Variante gehört zur jeweiligen
+Dienstgruppe. Büro, Weiterbildung, Ferien und alle übrigen Termine gehören
+zu Sonstiges. Die originalen Dienstnamen, Abteilungen, Zeiten und Emojis
+bleiben innerhalb der Termine erhalten. Auch leere Gruppen können vorab
+abonniert werden und füllen sich mit später gespeicherten Monaten.
+
+Gruppenlinks verwenden `?gruppe=frueh|spaet|nacht|sonstiges`. Frühere Links
+mit `?dienst=<ID>` funktionieren unverändert weiter. Neue Monatsdaten tragen
+eine explizite Gruppenkennung. Für ältere gespeicherte Monate wird die Gruppe
+aus Dienstbezeichnung und Ganztagsart bestimmt; unbekannte Titel landen in
+Sonstiges. Dafür muss kein alter Monat neu hochgeladen werden. Frontend und
+Kalenderdienst verwenden dieselbe Klassifikation aus `duty-groups.js`.

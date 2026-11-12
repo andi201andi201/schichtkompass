@@ -14,3 +14,8 @@ test('Separate duty feeds work for Apple, Google and encoded setup links without
  }
  for(const suffix of ['?dienst=bad','?dienst=','?dienst='+'c'.repeat(32)+'&dienst=legacy','?dienst=legacy&edit=secret','?other=1'])assert.throws(()=>calendarLinks(base+suffix,'https://example.test/'));
 });
+test('The four group subscriptions preserve the Apple and Google URLs and reject mixed filters',()=>{
+ const base='https://schichtkompass-calendar.andi201andi201.chatgpt.site/feed/'+'a'.repeat(64)+'/'+'b'.repeat(64)+'.ics';
+ for(const group of ['frueh','spaet','nacht','sonstiges']){const feed=base+'?gruppe='+group,links=calendarLinks(feed,'https://schichtkompass.bb-planer.ch/');assert.equal(links.apple,feed.replace('https:','webcal:'));assert.equal(new URL(links.google).searchParams.get('cid'),links.apple)}
+ for(const suffix of ['?gruppe=bad','?gruppe=','?gruppe=frueh&gruppe=nacht','?gruppe=frueh&dienst=legacy'])assert.throws(()=>calendarLinks(base+suffix,'https://example.test/'));
+});

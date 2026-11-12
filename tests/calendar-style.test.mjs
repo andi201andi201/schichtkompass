@@ -26,3 +26,11 @@ test('Service subscriptions are stable across dates, times and day-specific exce
  assert.equal(serviceForEntry({definition:{type:'skip',name:'Frei'}}),null);
  const catalog=serviceCatalog([early,{...early,day:5},night,{definition:{type:'skip'}}]);assert.equal(catalog.length,2);assert.equal(catalog.find(x=>x.id===expected).count,2);
 });
+test('Colour mode has exactly four groups; Stroke variants join the matching shift and all remaining duties stay Sonstiges',async()=>{
+ const {colourGroupCatalog}=await import('../dist/calendar-style.js');
+ const office={day:8,definition:{code:'B',name:'Büro',type:'shift',start:'22:00',end:'07:00'}},training={day:9,definition:{code:'WA',name:'Weiterbildung Arbeitstag',type:'shift',start:'07:00',end:'16:00'}},holiday={day:10,definition:{code:'F',name:'Ferien',type:'allday'}};
+ const entries=[early,night,{...early,day:4,definition:{...early.definition,code:'F',name:'Frühdienst',department:''}},office,training,holiday];
+ assert.deepEqual(colourGroupCatalog(entries).map(({id,count})=>[id,count]),[['frueh',2],['spaet',0],['nacht',1],['sonstiges',3]]);
+ const content=(await makeICS({year:2027,month:1,entries,emojis:true})).replace(/\r\n /g,'');
+ assert.match(content,/SUMMARY:💻 Büro/);assert.match(content,/SUMMARY:🎓 Weiterbildung Arbeitstag/);assert.match(content,/SUMMARY:🏖️ Ferien/);assert.doesNotMatch(content,/SUMMARY:Sonstiges/);
+});

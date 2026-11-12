@@ -1,5 +1,5 @@
 import {departmentForEntry} from './duty-context.js';
-import {serviceForEntry,styledSummary} from './calendar-style.js';
+import {serviceForEntry,styledSummary,colourGroupForEntry} from './calendar-style.js';
 export const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 export const dayCount=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 export const pad=n=>String(n).padStart(2,'0');
@@ -28,7 +28,7 @@ export async function makeICS({year,month,entries,identity='',location='',remind
  const stamp=now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
  for(const e of entries){const d=e.definition;if(!validateDefinition(d))throw new Error('Nicht alle Dienste sind vollständig zugeordnet.');if(d.type==='skip')continue;const date=dateKey(year,month,e.day);const uid=eventUID(normalise(identity)+'|'+date+(e.partCount>1?'|part:'+e.partIndex:''));
  const service=serviceForEntry(e);
- lines.push('BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'SUMMARY:'+escapeICS(styledSummary(e,emojis)),'X-SCHICHTKOMPASS-SERVICE:'+service.id,'X-SCHICHTKOMPASS-SERVICE-NAME:'+escapeICS(service.label),'CLASS:PRIVATE','TRANSP:OPAQUE');
+ lines.push('BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'SUMMARY:'+escapeICS(styledSummary(e,emojis)),'X-SCHICHTKOMPASS-SERVICE:'+service.id,'X-SCHICHTKOMPASS-SERVICE-NAME:'+escapeICS(service.label),'X-SCHICHTKOMPASS-GROUP:'+colourGroupForEntry(e).id,'CLASS:PRIVATE','TRANSP:OPAQUE');
  if(d.type==='allday')lines.push('DTSTART;VALUE=DATE:'+date,'DTEND;VALUE=DATE:'+nextDay(year,month,e.day));else{const overnight=d.end<d.start;lines.push('DTSTART;TZID=Europe/Zurich:'+date+'T'+d.start.replace(':','')+'00','DTEND;TZID=Europe/Zurich:'+(overnight?nextDay(year,month,e.day):date)+'T'+d.end.replace(':','')+'00')}
  const department=departmentForEntry(e),eventLocation=[location,department].filter(Boolean).join(' · ');if(eventLocation)lines.push('LOCATION:'+escapeICS(eventLocation));lines.push('DESCRIPTION:'+escapeICS('Aus dem persönlich geprüften Dienstplan übernommen. Massgeblich bleibt der offizielle Dienstplan.'+(department?'\nAbteilung: '+department:'')+(e.note?'\nZusatz aus der Zeile darunter: '+e.note:'')));
  if(d.type==='shift'&&Number(reminder)>0)lines.push('BEGIN:VALARM','TRIGGER:-PT'+Math.round(Number(reminder))+'M','ACTION:DISPLAY','DESCRIPTION:'+escapeICS(d.name),'END:VALARM');lines.push('END:VEVENT')}

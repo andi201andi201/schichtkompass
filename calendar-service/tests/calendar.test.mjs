@@ -58,3 +58,14 @@ test('Older untagged months remain available as Bisherige Dienste instead of sil
  const response=await handle(new Request(base+'/feed/'+id+'/'+read+'.ics?dienst=legacy'),db);assert.match(await response.text(),/SUMMARY:Alter Dienst/);
  assert.equal((await handle(req('DELETE'),db)).status,200);
 });
+test('Four colour groups cover every event, including older months, without replacing detailed event names',async()=>{
+ const event=(uid,title,{allDay=false,group=''}={})=>'BEGIN:VEVENT\r\nUID:'+uid+'\r\nDTSTART'+(allDay?';VALUE=DATE:':';TZID=Europe/Zurich:')+date+(allDay?'':'T070000')+'\r\nSUMMARY:'+title+'\r\n'+(group?'X-SCHICHTKOMPASS-GROUP:'+group+'\r\n':'')+'END:VEVENT\r\n';
+ const content='BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event('early','☀️ Frühdienst Stroke · Stroke Unit')+event('late','Spätdienst')+event('night','Nachtdienst Stroke')+event('office','Büro')+event('training','Weiterbildung Arbeitstag')+event('holiday','Ferien',{allDay:true})+'END:VCALENDAR\r\n';
+ const saved=await handle(req('PUT',{ics:content,month,readToken:read}),db);assert.equal(saved.status,200);assert.deepEqual((await saved.json()).groups.map(({id,count})=>[id,count]),[['frueh',1],['spaet',1],['nacht',1],['sonstiges',3]]);
+ const groupFeed=group=>handle(new Request(base+'/feed/'+id+'/'+read+'.ics?gruppe='+group),db);
+ const other=await(await groupFeed('sonstiges')).text();assert.equal((other.match(/BEGIN:VEVENT/g)||[]).length,3);assert.match(other,/SUMMARY:Büro/);assert.match(other,/SUMMARY:Weiterbildung Arbeitstag/);assert.match(other,/SUMMARY:Ferien/);assert.doesNotMatch(other,/SUMMARY:.*dienst/);assert.match(other,/X-WR-CALNAME:SchichtKompass · Sonstiges/);
+ assert.match(await(await groupFeed('frueh')).text(),/SUMMARY:☀️ Frühdienst Stroke · Stroke Unit/);
+ for(const query of ['?gruppe=bad','?gruppe=','?gruppe=frueh&gruppe=nacht','?gruppe=frueh&dienst=legacy'])assert.equal((await handle(new Request(base+'/feed/'+id+'/'+read+'.ics'+query),db)).status,404);
+ const corrected='BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event('early','Frühdienst',{group:'frueh'})+'END:VCALENDAR\r\n';assert.equal((await handle(req('PUT',{ics:corrected,month,readToken:read}),db)).status,200);assert.doesNotMatch(await(await groupFeed('sonstiges')).text(),/BEGIN:VEVENT/);
+ assert.equal((await handle(req('DELETE'),db)).status,200);assert.equal((await groupFeed('frueh')).status,404);
+});

@@ -2,7 +2,7 @@ import zgksRegistry from './zgks-legend-data.json';
 import {ZGKS_SETTINGS_KEY,initialZGKSSettings,annotateZGKS,zgksDefinition,zgksIdFor,selectZGKSDefinition,strokeLegend} from './zgks-legend.js';
 import {initialCalendar,showGoogleSetup} from './calendar-choice.js';
 import {setupSubscription} from './subscription.js';
-import {serviceCatalog,styledSummary} from './calendar-style.js';
+import {colourGroupCatalog,styledSummary} from './calendar-style.js';
 import {MONTHS,dayCount,normalise,featureDistance,groupSymbols,validateDefinition,shiftMinutes,makeICS,detectGrid,findPerson,pad} from './core.js';
 import {imagePlacements,imagesAtCell,pixelRGBA} from './pdf-images.js';
 import {annotateSymbol,definitionFor,isEmptySymbol} from './symbol-registry.js';
@@ -179,7 +179,7 @@ $('#reset').onclick=async()=>{clearCalendarFile();++state.loadId;if(state.pdf)aw
 $('#start-person').oninput=()=>{$('#person').value=$('#start-person').value};$('#person').oninput=()=>{$('#start-person').value=$('#person').value};
 goto(0);
 
-var refreshSubscription=setupSubscription({getTarget:()=>$('#calendar-target').value,canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getServices:()=>serviceCatalog(entries().filter(e=>validateDefinition(e.definition))),getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
+var refreshSubscription=setupSubscription({getTarget:()=>$('#calendar-target').value,canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getServices:()=>colourGroupCatalog(entries().filter(e=>validateDefinition(e.definition))),getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
 
 function rememberCalendar(value){try{localStorage.setItem('schichtkompass-calendar-choice',value)}catch{}for(const radio of document.querySelectorAll('[name="calendar-choice"]'))radio.checked=radio.value===value;$('#file-input').disabled=!value;$('#dropzone').setAttribute('aria-disabled',String(!value));}
 let remembered;try{remembered=localStorage.getItem('schichtkompass-calendar-choice')}catch{}
