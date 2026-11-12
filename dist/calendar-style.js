@@ -1,5 +1,5 @@
 import {calendarSummary,departmentForEntry} from './duty-context.js';
-import {DUTY_GROUPS,dutyGroup} from './duty-groups.js';
+import {DUTY_GROUPS,dutyGroup,emojiForDuty} from './duty-groups.js';
 
 const normal=value=>String(value||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]+/g,' ').trim();
 function serviceHash(value){
@@ -24,16 +24,7 @@ export function colourGroupCatalog(entries){
  const counts=new Map();for(const entry of entries){if(!entry.definition||entry.definition.type==='skip')continue;const group=colourGroupForEntry(entry),row=counts.get(group.id)||{...group,count:0};row.count++;counts.set(group.id,row)}
  return Object.entries(DUTY_GROUPS).map(([id,label])=>counts.get(id)||{id,label,count:0});
 }
-export function emojiForEntry(entry){
- const name=normal(entry.definition?.name),code=normal(entry.definition?.code),shift=entry.definition?.type==='shift';
- if(/ferien|urlaub/.test(name))return '🏖️';
- if(/weiterbildung|fortbildung|schulung|schultag|lerntag|lerntreffen|lernforum|pil\b/.test(name)||code==='pil')return '🎓';
- if(/buro|planungstag/.test(name))return '💻';
- if(/nachtdienst/.test(name)||(shift&&['n','ns'].includes(code)))return '🌙';
- if(/spatdienst/.test(name)||(shift&&['s','ss','c'].includes(code)))return '🌇';
- if(/fruhdienst/.test(name)||(shift&&['f','fs'].includes(code)))return '☀️';
- return entry.definition?.type==='allday'?'📅':'🏥';
-}
+export function emojiForEntry(entry){return emojiForDuty(entry.definition)}
 export function styledSummary(entry,emojis=false){
  const title=calendarSummary(entry);
  return emojis&&!/^\p{Extended_Pictographic}/u.test(title)?emojiForEntry(entry)+' '+title:title;

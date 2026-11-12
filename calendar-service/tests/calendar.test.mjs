@@ -69,3 +69,17 @@ test('Four colour groups cover every event, including older months, without repl
  const corrected='BEGIN:VCALENDAR\r\nVERSION:2.0\r\n'+event('early','Frühdienst',{group:'frueh'})+'END:VCALENDAR\r\n';assert.equal((await handle(req('PUT',{ics:corrected,month,readToken:read}),db)).status,200);assert.doesNotMatch(await(await groupFeed('sonstiges')).text(),/BEGIN:VEVENT/);
  assert.equal((await handle(req('DELETE'),db)).status,200);assert.equal((await groupFeed('frueh')).status,404);
 });
+test('Authenticated display update reaches all old months and group feeds, preserves dates and IDs, and later uploads keep increasing revisions',async()=>{
+ const early=ics('Frühdienst Stroke').replace(';VALUE=DATE:', ';TZID=Europe/Zurich:').replace(date+'\r\n',date+'T070000\r\n');
+ assert.equal((await handle(req('PUT',{ics:early,month,readToken:read}),db)).status,200);
+ const laterDate=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),1)),laterMonth=laterDate.toISOString().slice(0,7),other=ics('Büro').replaceAll(date,laterMonth.replace('-','')+'06');assert.equal((await handle(req('PUT',{ics:other,month:laterMonth,readToken:read}),db)).status,200);
+ assert.equal((await handle(req('PATCH',{emojis:true},read),db)).status,403);assert.equal((await handle(req('PATCH',{emojis:'yes'}),db)).status,400);
+ const enabled=await handle(req('PATCH',{emojis:true}),db);assert.equal(enabled.status,200);assert.equal((await enabled.json()).updatedMonths,2);
+ const feed=group=>handle(new Request(base+'/feed/'+id+'/'+read+'.ics'+(group?'?gruppe='+group:'')),db);
+ const full=(await(await feed()).text()).replace(/\r\n /g,'');assert.match(full,/SUMMARY:☀️ Frühdienst Stroke/);assert.match(full,/SUMMARY:💻 Büro/);assert.match(full,/SEQUENCE:1/);assert.match(full,/DTSTART;TZID=Europe\/Zurich:/);assert.equal((full.match(/UID:abc/g)||[]).length,2);
+ assert.match(await(await feed('frueh')).text(),/SUMMARY:☀️ Frühdienst Stroke/);assert.match(await(await feed('sonstiges')).text(),/SUMMARY:💻 Büro/);
+ assert.equal((await(await handle(req('PATCH',{emojis:true}),db)).json()).updatedMonths,0);
+ assert.equal((await handle(req('PUT',{ics:early.replace('Stroke','Stroke korrigiert'),month,readToken:read,emojis:false}),db)).status,200);
+ const removed=await(await feed()).text();assert.doesNotMatch(removed,/SUMMARY:☀️|SUMMARY:💻/);assert.match(removed,/SEQUENCE:2/);
+ assert.equal((await handle(req('DELETE'),db)).status,200);
+});

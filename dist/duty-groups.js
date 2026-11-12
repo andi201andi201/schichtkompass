@@ -9,3 +9,14 @@ export function dutyGroup({name='',code='',type='shift'}={}){
  if(/fruhdienst/.test(title)||['f','fs'].includes(short)||/^(f|fs)$/.test(title))return 'frueh';
  return 'sonstiges';
 }
+
+export function emojiForDuty({name='',code='',type='shift'}={}){
+ const title=normal(name),short=normal(code),shift=type==='shift';
+ if(/ferien|urlaub/.test(title))return '🏖️';
+ if(/weiterbildung|fortbildung|schulung|schultag|lerntag|lerntreffen|lernforum|pil\b/.test(title)||short==='pil')return '🎓';
+ if(/buro|planungstag/.test(title))return '💻';
+ if(/nachtdienst/.test(title)||(shift&&['n','ns'].includes(short)))return '🌙';
+ if(/spatdienst/.test(title)||(shift&&['s','ss','c'].includes(short)))return '🌇';
+ if(/fruhdienst/.test(title)||(shift&&['f','fs'].includes(short)))return '☀️';
+ return type==='allday'?'📅':'🏥';
+}

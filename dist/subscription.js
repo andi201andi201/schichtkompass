@@ -4,8 +4,8 @@ const KEY='schichtkompass-subscription-v1',SPLIT_KEY='schichtkompass-separate-du
 const random=()=>Array.from(crypto.getRandomValues(new Uint8Array(32)),b=>b.toString(16).padStart(2,'0')).join('');
 async function identity(value){return Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(value.trim().toLowerCase().replace(/\s+/g,' ')))),b=>b.toString(16).padStart(2,'0')).join('')}
 const validServices=values=>Array.isArray(values)?values.filter(s=>s&&/^(frueh|spaet|nacht|sonstiges)$/.test(s.id)&&typeof s.label==='string'&&s.label.length<=600&&Number.isInteger(s.count)&&s.count>=0).map(s=>({id:s.id,label:s.label,count:s.count})):[];
-export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDemo,notify,getServices=()=>[],getTarget=()=>'iphone',getPageBase=()=>new URL('./',location.href).href}){
- const $=id=>document.getElementById(id);let busy=false,saved,catalog=[],catalogLoaded=false,catalogLoading=false,catalogRequest=0;
+export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDemo,notify,getEmojis=()=>false,getServices=()=>[],getTarget=()=>'iphone',getPageBase=()=>new URL('./',location.href).href}){
+ const $=id=>document.getElementById(id);let busy=false,saved,catalog=[],catalogLoaded=false,catalogLoading=false,catalogRequest=0,pendingEmojis=false;
  try{saved=JSON.parse(localStorage.getItem(KEY)||'null');$('subscription-split').checked=localStorage.getItem(SPLIT_KEY)==='true'}catch{}
  if(saved&&![saved.id,saved.edit,saved.read,saved.identity].every(x=>typeof x==='string'&&/^[a-f0-9]{64}$/.test(x)))saved=null;
  let lastMonth='';
@@ -51,6 +51,7 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
   $('subscription-links').hidden=!saved?.published;
   $('subscription-revoke').hidden=!saved;
   $('subscription-revoke').disabled=busy;
+  $('emoji-apply').hidden=!saved?.published;$('emoji-apply').disabled=busy||isDemo();
   if(saved?.published){const https=feed(),links=calendarLinks(https,getPageBase());$('subscription-open').href=isGoogle?links.google:links.apple;$('subscription-url').value=https;}
   renderServices();
   if(split&&!busy&&saved?.published&&!catalogLoaded&&!catalogLoading)void loadCatalog();
@@ -74,15 +75,28 @@ export function setupSubscription({canPublish,getContent,getMonth,getPerson,isDe
    if(!saved){saved={id:random(),edit:random(),read:random(),identity:person,published:false};}
    // Save keys before sending so a lost network response never loses management access.
    localStorage.setItem(KEY,JSON.stringify(saved));
-   const result=await send('PUT',{ics:content,month,readToken:saved.read});
+   const result=await send('PUT',{ics:content,month,readToken:saved.read,emojis:!!getEmojis()});
    saved.published=true;localStorage.setItem(KEY,JSON.stringify(saved));
-   catalog=validServices(result.groups);catalogLoaded=true;lastMonth=month;
-  }catch(e){notify(e.message,'error')}finally{busy=false;paint()}
+   catalog=validServices(result.groups);catalogLoaded=true;lastMonth=month;emojiStatus((getEmojis()?'Emojis':'Anzeige ohne Emojis')+' im Abo gespeichert. Dein Kalender übernimmt Änderungen beim nächsten Abruf.');
+  }catch(e){notify(e.message,'error')}finally{busy=false;paint();if(pendingEmojis){pendingEmojis=false;await syncEmojis()}}
  };
  $('subscription-revoke').onclick=async()=>{
   if(busy||!saved||!confirm('Alle Abo-Links sperren und alle gespeicherten Termine auf dem Server löschen? Bereits geladene Termine können bis zum nächsten Kalenderabruf sichtbar bleiben.'))return;
-  busy=true;catalogRequest++;catalogLoading=false;paint();try{await send('DELETE');localStorage.removeItem(KEY);saved=null;catalog=[];catalogLoaded=false;lastMonth='';$('subscription-status').textContent='Gesamtabo und Einzel-Abos widerrufen, Serverdaten gelöscht. Entferne die abonnierten Kalender auch in deiner Kalender-App.'}catch(e){notify(e.message,'error')}finally{busy=false;paint()}
+  busy=true;catalogRequest++;catalogLoading=false;paint();try{await send('DELETE');localStorage.removeItem(KEY);saved=null;pendingEmojis=false;emojiStatus('');catalog=[];catalogLoaded=false;lastMonth='';$('subscription-status').textContent='Gesamtabo und Einzel-Abos widerrufen, Serverdaten gelöscht. Entferne die abonnierten Kalender auch in deiner Kalender-App.'}catch(e){notify(e.message,'error')}finally{busy=false;paint()}
  };
+ function emojiStatus(message,error=false){const box=$('emoji-sync-status');box.hidden=!message;box.textContent=message;box.className=error?'appearance-note error':'appearance-note';$('emoji-apply').textContent=error?'Erneut versuchen':'Emojis im Abo aktualisieren'}
+ async function syncEmojis(){
+  if(!saved?.published||isDemo()){emojiStatus(isDemo()?'Beispielmodus: Die Emoji-Auswahl gilt für die Beispiel-Datei. Ein bestehendes Abo bleibt unverändert.':'Die Emoji-Auswahl wird beim nächsten Export oder beim Erstellen des Abos übernommen.');return}
+  if(busy){pendingEmojis=true;emojiStatus('Die Emoji-Auswahl wird anschliessend im Abo gespeichert …');return}
+  busy=true;paint();const enabled=!!getEmojis();emojiStatus('Emoji-Auswahl wird für alle gespeicherten Monate übernommen …');
+  try{
+   const person=getPerson().trim();if(person&&saved.identity!==await identity(person))throw Error('Dieses Abo gehört zu einem anderen Namen.');
+   await send('PATCH',{emojis:enabled});
+   emojiStatus((enabled?'Emojis':'Anzeige ohne Emojis')+' für alle gespeicherten Monate im Abo gespeichert. Dein Kalender übernimmt Änderungen beim nächsten Abruf.');
+  }catch(e){emojiStatus('Nicht gespeichert: '+e.message,true)}
+  finally{busy=false;paint();if(pendingEmojis){pendingEmojis=false;await syncEmojis()}}
+ }
+ $('emoji-apply').onclick=syncEmojis;paint.updateEmojis=syncEmojis;
  $('subscription-copy').onclick=async()=>{try{await navigator.clipboard.writeText($('subscription-url').value);notify('Privaten Abo-Link kopiert. Wer ihn besitzt, kann deine Termine lesen.','success')}catch{$('subscription-url').select();notify('Link markieren und kopieren.')}};
  $('google-share').onclick=async()=>{
   if(!saved?.published)return;

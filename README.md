@@ -180,3 +180,24 @@ eine explizite Gruppenkennung. Für ältere gespeicherte Monate wird die Gruppe
 aus Dienstbezeichnung und Ganztagsart bestimmt; unbekannte Titel landen in
 Sonstiges. Dafür muss kein alter Monat neu hochgeladen werden. Frontend und
 Kalenderdienst verwenden dieselbe Klassifikation aus `duty-groups.js`.
+
+
+## Emoji-Aktualisierung bestehender Abos (0.9.6)
+
+Der Emoji-Schalter aktualisiert jetzt auch alle bereits gespeicherten Monate
+über einen authentifizierten PATCH-Aufruf. «Emojis im Abo aktualisieren»
+übernimmt eine bereits gewählte Einstellung erneut, ohne Originalplan oder
+neuen Monatsupload. Der Beispielmodus verändert keine bestehenden Abos.
+Die Oberfläche zeigt Speichern, Erfolg und Fehler mit Wiederholungsmöglichkeit.
+Schnelle Auswahlwechsel werden in Reihenfolge verarbeitet; die letzte Auswahl
+gilt. Beim Monatsupload wird die Auswahl ebenfalls auf die bestehenden Monate
+angewendet. Das Abrufintervall bleibt beim Kalenderanbieter.
+
+Originaltitel werden als private ICS-Zusatzeigenschaft erhalten, damit das
+Ausschalten den unveränderten Dienstnamen wiederherstellt. Ältere gespeicherte
+Titel werden ohne erneuten Planimport umgestellt. UID, Datum, Zeiten,
+Dienstgruppe, Abteilung und Alarme bleiben bestehen. Änderungen erhöhen
+SEQUENCE und setzen LAST-MODIFIED sowie DTSTAMP; spätere Monatsuploads setzen
+die Fassung nicht zurück. Identische wiederholte Einstellungen ändern keine
+Terminfassung. Es gibt keine neue Datenbank oder Migration. Die API-Route
+exportiert PATCH zusätzlich zu den bisherigen Methoden.

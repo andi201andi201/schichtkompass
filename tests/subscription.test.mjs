@@ -29,3 +29,14 @@ test('Individual subscriptions are an optional display choice, share one upload 
  assert.equal($('subscription-combined-links').hidden,true);const link=$('subscription-service-list').children[0].children[1].children[0];assert.equal(new URL(link.href).searchParams.get('gruppe'),services[0].id);assert.match(link.href,/^webcal:/);
  $('subscription-split').checked=false;$('subscription-split').onchange();assert.equal($('subscription-service-mode').hidden,true);assert.equal($('subscription-combined-links').hidden,false);assert.deepEqual(calls,['PUT']);assert.equal(new URL($('subscription-open').href).search,'');
 });
+test('Changing emoji display updates an existing subscription without a new roster, and rapid choices settle on the latest value',async()=>{
+ const nodes=new Map();global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,{checked:false,hidden:false,value:'',textContent:''});return nodes.get(id)}};
+ const keys={id:'a'.repeat(64),read:'b'.repeat(64),edit:'c'.repeat(64),identity:'d'.repeat(64),published:true};const storage=new Map([['schichtkompass-subscription-v1',JSON.stringify(keys)]]);global.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ global.location={href:'https://schichtkompass.bb-planer.ch/'};let enabled=true,calls=[],release;
+ global.fetch=async(url,options)=>{calls.push({method:options.method,body:JSON.parse(options.body)});if(calls.length===1)await new Promise(resolve=>release=resolve);return Response.json({ok:true})};
+ const paint=setupSubscription({canPublish:()=>false,getContent:()=>{throw Error('No roster should be read')},getEmojis:()=>enabled,getMonth:()=>'',getPerson:()=>'',isDemo:()=>false,notify:()=>{}});
+ const first=paint.updateEmojis();await new Promise(resolve=>setImmediate(resolve));enabled=false;await paint.updateEmojis();release();await first;
+ assert.deepEqual(calls,[{method:'PATCH',body:{emojis:true}},{method:'PATCH',body:{emojis:false}}]);assert.match(document.getElementById('emoji-sync-status').textContent,/ohne Emojis.*gespeichert/);
+ assert.equal(document.getElementById('subscription-consent').checked,false);assert.equal(document.getElementById('emoji-apply').hidden,false);
+ global.fetch=async()=>new Response('{}',{status:503});await paint.updateEmojis();assert.match(document.getElementById('emoji-sync-status').textContent,/Nicht gespeichert/);assert.equal(document.getElementById('emoji-apply').textContent,'Erneut versuchen');
+});
