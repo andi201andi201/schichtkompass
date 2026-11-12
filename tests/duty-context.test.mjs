@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {hasRedBackground,notesBelowRow,contextFor} from '../dist/duty-context.js';
+import {hasRedBackground,notesBelowRow,contextFor,mergeDutyNotes} from '../dist/duty-context.js';
 import {annotateSymbol,definitionFor} from '../dist/symbol-registry.js';
 import {groupSymbols,makeICS,validateDefinition} from '../dist/core.js';
 const refs=JSON.parse(readFileSync(new URL('../dist/hospital-symbols.json',import.meta.url)));
@@ -45,4 +45,9 @@ test('Kalender enthält Stroke Unit und Zusatz ZusA beim richtigen Dienst',async
  assert.match(s,/LOCATION:Spital · Stroke Unit/);
  assert.match(s.replace(/\r\n[ \t]/g,''),/Zusatz aus der Zeile darunter: StU ZusA/);
  assert.equal(validateDefinition({...A,otherDepartment:true,department:''}),false);
+});
+test('StUn is Stroke Unit and text never suppresses the coloured supplementary stripe',()=>{
+ const note=mergeDutyNotes('StUn 002','StU DIV');assert.equal(note,'StUn 002 DIV');const context=contextFor({note,otherDepartment:true});assert.equal(context.departmentLabel,'Stroke Unit');assert.ok(context.contextKey.startsWith('other:STU'));
+ assert.notEqual(contextFor({partCount:2,partIndex:1,partialDate:'2027-02-01'}).contextKey,contextFor({partCount:2,partIndex:2,partialDate:'2027-02-01'}).contextKey);
+ assert.notEqual(contextFor({partCount:2,partIndex:1,partialDate:'2027-02-01'}).contextKey,contextFor({partCount:2,partIndex:1,partialDate:'2027-02-02'}).contextKey);
 });

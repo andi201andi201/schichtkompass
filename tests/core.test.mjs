@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {imagePlacements,imageAtCell,pixelRGBA} from '../dist/pdf-images.js';
+import {imagePlacements,imageAtCell,imagesAtCell,pixelRGBA} from '../dist/pdf-images.js';
 import {dayCount,groupSymbols,validateDefinition,shiftMinutes,makeICS,foldLine,detectGrid,findPerson} from '../dist/core.js';
 const night={code:'N',name:'Nachtdienst',type:'shift',start:'22:00',end:'07:00'};
 test('Exakte Bildplatzierung und RGB-Dekodierung',()=>{const multiply=(a,b)=>[a[0]*b[0]+a[2]*b[1],a[1]*b[0]+a[3]*b[1],a[0]*b[2]+a[2]*b[3],a[1]*b[2]+a[3]*b[3],a[0]*b[4]+a[2]*b[5]+a[4],a[1]*b[4]+a[3]*b[5]+a[5]];const OPS={save:1,restore:2,transform:3,paintImageXObject:4,paintImageXObjectRepeat:5};const places=imagePlacements({fnArray:[1,3,4,2],argsArray:[[],[10,0,0,10,100,50],['symbol'],[]]},OPS,{transform:multiply},{transform:[2,0,0,-2,0,200]});assert.equal(places.length,1);assert.deepEqual(places[0],{id:'symbol',x:200,y:80,w:20,h:20});assert.equal(imageAtCell(places,{x:200,y:80,w:40,h:20},1,2).id,'symbol');assert.deepEqual([...pixelRGBA({width:1,height:1,kind:2,data:[10,20,30]})],[10,20,30,255])});
@@ -12,3 +12,13 @@ test('ICS escaped Inhalte und UTF-8 Zeilenlängen',async()=>{const s=await makeI
 test('Symbole werden anhand des Bildinhalts gruppiert, markante Unterschiede getrennt',()=>{const a=Array(1200).fill(100),b=Array(1200).fill(240);const r=groupSymbols([{day:1,feature:a,thumb:'a'},{day:2,feature:a,thumb:'a'},{day:3,feature:b,thumb:'b'}]);assert.equal(r.groups.length,2);assert.deepEqual(r.groups[0].days,[1,2])});
 test('Datumsraster erfordert eine vollständige, gleichmässige Monatsfolge',()=>{const items=Array.from({length:30},(_,i)=>({text:String(i+1).padStart(2,'0'),x:100+i*20,y:50,width:10,height:8}));const grid=detectGrid(items,1000,30);assert.equal(grid.step,20);assert.equal(detectGrid(items.filter((_,i)=>i!==12),1000,30),null)});
 test('Personensuche unterstützt vertauschte Namen und erkennt Mehrdeutigkeit',()=>{const a={text:'Beispiel Alex',x:10,y:80,width:100,height:10};assert.equal(findPerson([a],'Alex Beispiel').length,1);assert.equal(findPerson([a,{...a,y:120}],'Alex Beispiel').length,2);assert.equal(findPerson([a],'Andere Person').length,0)});
+test('Both side-by-side duty images are read once and assigned to the same date',()=>{
+ const left={id:'training',x:101,y:50,w:8,h:15},right={id:'office',x:110,y:50,w:8,h:15},next={id:'next-row',x:101,y:80,w:18,h:18};
+ assert.deepEqual(imagesAtCell([right,left,{...left},next],{x:100,y:48,w:40,h:20},1,2),[left,right]);
+ assert.deepEqual(imagesAtCell([left,right],{x:100,y:48,w:40,h:20},2,2),[]);
+});
+test('Multiple services on one date have distinct stable calendar identities',async()=>{
+ const base={year:2027,month:1,identity:'Fiktive Testperson'},one={day:8,partIndex:1,partCount:2,definition:{code:'WB',name:'Weiterbildung',type:'shift',start:'08:00',end:'12:00'}},two={day:8,partIndex:2,partCount:2,definition:{code:'B',name:'Büro',type:'shift',start:'13:00',end:'17:00'}};
+ const first=await makeICS({...base,entries:[one,two]}),changed=await makeICS({...base,entries:[one,{...two,definition:{...two.definition,end:'17:30'}}]});
+ const uids=calendar=>[...calendar.matchAll(/UID:([^\r]+)/g)].map(m=>m[1]);assert.equal(new Set(uids(first)).size,2);assert.deepEqual(uids(first),uids(changed));assert.match(first,/20270108T080000/);assert.match(first,/20270108T130000/);
+});

@@ -116,3 +116,11 @@ test('One explicit legend choice fills every field and can teach an unfamiliar p
  assert.equal(annotateZGKS(ref(2),registry,{profiles:[correction],year:2026,month:11}).serviceKey,'zgks:2','Corrections do not cross the effective period');
  assert.equal(annotateZGKS({...ref(2),note:'StU'},registry,{profiles:[correction],year:2027,month:1}).serviceKey,'zgks:2|unit:STU','Corrections stay scoped to the department');
 });
+test('Additional embedded PDF variants use official names but Stroke suffixes retain the confirmed regular shift times',()=>{
+ const variants=JSON.parse(readFileSync(new URL('../dist/zgks-symbol-variants.json',import.meta.url)));
+ for(const variant of variants.known){const annotated=annotateZGKS(variant,registry);assert.equal(annotated.serviceKey.split('|')[0],ref(variant.id).type==='skip'?'free':'zgks:'+variant.id,variant.id)}
+ for(const variant of variants.stroke){const annotated=annotateZGKS({...variant,note:'StUn'},registry);assert.equal(annotated.recognizedCode,variant.code);assert.equal(annotated.departmentLabel,'Stroke Unit');const d=zgksDefinition(annotated,[],registry,{year:2027,month:1}).definition;assert.equal(d.code,variant.code);assert.equal(d.name,variant.name);assert.equal(validateDefinition(d),true);const times={FS:['07:00','16:06'],SS:['13:54','23:00'],NS:['22:10','07:11']};assert.deepEqual([d.start,d.end],times[variant.code])}
+ const part=group(5038,{partIndex:2,partCount:2,partialDate:'2027-02-01'}),automatic=zgksDefinition(part,[],registry,{year:2027,month:2});
+ assert.equal(automatic.definition.name,'Büro');assert.equal(automatic.definition.start,'');assert.equal(validateDefinition(automatic.definition),false);assert.match(automatic.reason,/Mehrere Dienste/);
+ assert.equal(selectZGKSDefinition(part,'5038',registry,{year:2027,month:2}).definition.start,'','Selecting a full-day template never silently assigns full hours to a split entry');
+});

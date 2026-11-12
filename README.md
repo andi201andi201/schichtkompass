@@ -109,3 +109,21 @@ verwendbar. Eine explizite gemeinsame Übernahme der offiziellen Angaben für
 diesen konkreten Monat ersetzt die frühere manuelle Eingabe pro Dienst.
 Unbekannte Symbole werden dabei nicht geraten. Die ursprünglichen PDFs und
 vollständige Dienstpläne bleiben ausserhalb des veröffentlichten Quellcodes.
+
+## POLYPOINT variants, Stroke and multiple services (0.9.3)
+
+Additional isolated 24px symbol variants support the newer PDF export font,
+background colours and scaled images. Only deduplicated glyph data is included,
+sorted independently of source order; no names, plan dates or duty sequence are
+stored. Stroke codes FS, SS and NS are distinct from the ordinary codes, with
+Stroke Unit assigned automatically. The operator confirmed the same times as
+Frühdienst, Spätdienst and Nachtdienst respectively. StUn is an alias of StU.
+Text notes and coloured DIV/ZusA stripes are combined rather than suppressing
+one another.
+
+Up to four side-by-side service images per day are retained, with separate
+calendar identities and independent selection. Nonstandard multiple-service
+entries require their own times; a full shift's template is not silently copied
+to each part. Their saved definitions are scoped to the concrete date and part.
+The subscription service accepts up to 124 monthly events within its existing
+size and authentication limits. No database migration is required.

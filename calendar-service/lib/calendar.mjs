@@ -20,7 +20,7 @@ export function validateICS(ics,month){
   if(key==='ACTION'&&value!=='DISPLAY')throw Error('Ungültiger Alarm');
   if(key==='RRULE'&&stack.at(-1)!=='DAYLIGHT'&&stack.at(-1)!=='STANDARD')throw Error('Wiederholungen sind nicht erlaubt');
  }
- if(stack.length||count>31)throw Error('Zu viele Termine');return ics;
+ if(stack.length||count>124)throw Error('Zu viele Termine');return ics;
 }
 export function mergeCalendars(rows){
  const base=rows[0]?.ics; if(!base)return 'BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//SchichtKompass//DE\r\nEND:VCALENDAR\r\n';

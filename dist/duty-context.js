@@ -1,4 +1,5 @@
-const normal=s=>String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');
+const normal=s=>{const value=String(s||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/[^A-Z0-9]/g,'');return value==='STUN'?'STU':value};
+export function mergeDutyNotes(...values){const tokens=new Map();for(const value of values)for(const token of String(value||'').split(/\s+/)){const key=normal(token);if(key&&!tokens.has(key))tokens.set(key,token)}return [...tokens.values()].join(' ')}
 export function hasRedBackground(feature){
  if(!feature||feature.length!==1200)return false;let red=0,total=0;
  // Only the fill counts. A red border around a white/grey C is not another unit.
@@ -11,7 +12,7 @@ export function contextFor(symbol){
  const other=symbol.otherDepartment??hasRedBackground(symbol.feature);
  const extraTokens=[...new Set(tokens.filter(t=>t&&t!==known?.code))].sort();
  const base=other?'other:'+(known?.code||'unassigned'):known?'unit:'+known.code:'home';
- const key=base+(extraTokens.length?'|extra:'+extraTokens.join('+'):'');
+ const key=base+(extraTokens.length?'|extra:'+extraTokens.join('+'):'')+(symbol.partCount>1?'|part:'+(symbol.partialDate||'')+':'+symbol.partIndex+'/'+symbol.partCount:'');
  const labels={ZUSA:'Zusätzlich geplant',DIV:'Weiterbildung divers'};
  return{contextKey:key,otherDepartment:other,requiresDepartment:other||!!known,departmentCode:known?.code||'',departmentLabel:known?.label||'',supplementLabels:extraTokens.map(t=>labels[t]||t),note};
 }

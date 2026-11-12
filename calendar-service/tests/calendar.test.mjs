@@ -1,4 +1,4 @@
-import {test} from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync} from 'node:fs';import {handle} from '../lib/calendar.mjs';
+import {test} from 'node:test';import assert from 'node:assert/strict';import {DatabaseSync} from 'node:sqlite';import {readFileSync} from 'node:fs';import {handle,validateICS} from '../lib/calendar.mjs';
 const sqlite=new DatabaseSync(':memory:');sqlite.exec(readFileSync(new URL('../drizzle/0000_sour_dragon_man.sql',import.meta.url),'utf8'));
 const db={prepare(sql){let vals=[];return{bind(...v){vals=v;return this},async first(){return sqlite.prepare(sql).get(...vals)},async all(){return{results:sqlite.prepare(sql).all(...vals)}},async run(){return sqlite.prepare(sql).run(...vals)}}},async batch(q){return Promise.all(q.map(x=>x.run()))}};
 const id='a'.repeat(64),edit='b'.repeat(64),read='c'.repeat(64),origin='https://andi201andi201.github.io',base='https://example.test';
@@ -25,4 +25,11 @@ test('Only the original and explicitly registered app origins can manage subscri
   const response=await handle(new Request(base+'/api/calendar/'+id,{method:'OPTIONS',headers:denied?{Origin:denied}:{}}),db);
   assert.equal(response.status,403);assert.equal(response.headers.get('Access-Control-Allow-Origin'),null);
  }
+});
+
+test('Multiple daily services stay bounded to four entries per calendar day',()=>{
+ const head='BEGIN:VCALENDAR\r\nVERSION:2.0\r\n',tail='END:VCALENDAR\r\n';
+ const event=i=>'BEGIN:VEVENT\r\nUID:'+i+'\r\nDTSTART;VALUE=DATE:'+date+'\r\nSUMMARY:Test\r\nEND:VEVENT\r\n';
+ assert.doesNotThrow(()=>validateICS(head+Array.from({length:124},(_,i)=>event(i)).join('')+tail,month));
+ assert.throws(()=>validateICS(head+Array.from({length:125},(_,i)=>event(i)).join('')+tail,month));
 });
