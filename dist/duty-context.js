@@ -48,7 +48,7 @@ export function calendarSummary(entry){
  const note=String(entry.note||'').trim();
  // Keep additional flags, without repeating StU next to the expanded unit name.
  const labels={ZUSA:'Zusätzlich geplant (ZusA)',DIV:'Weiterbildung divers (DIV)'};
- const extras=note.split(/\s+/).filter(token=>!(entry.departmentCode&&normal(token)===entry.departmentCode)).map(token=>labels[normal(token)]||token);
+ const extras=note.split(/\s+/).filter(token=>token&&!(entry.departmentCode&&normal(token)===entry.departmentCode)).map(token=>labels[normal(token)]||token);
  if(extras.length)parts.push(extras.join(' '));
  return parts.join(' · ');
 }

@@ -1,4 +1,5 @@
-import {calendarSummary,departmentForEntry} from './duty-context.js';
+import {departmentForEntry} from './duty-context.js';
+import {serviceForEntry,styledSummary} from './calendar-style.js';
 export const MONTHS=['Januar','Februar','März','April','Mai','Juni','Juli','August','September','Oktober','November','Dezember'];
 export const dayCount=(year,month)=>new Date(Date.UTC(year,month,0)).getUTCDate();
 export const pad=n=>String(n).padStart(2,'0');
@@ -22,11 +23,12 @@ export function nextDay(y,m,d){const n=new Date(Date.UTC(y,m-1,d+1));return date
 export function escapeICS(s){return String(s||'').replace(/\\/g,'\\\\').replace(/\r?\n/g,'\\n').replace(/;/g,'\\;').replace(/,/g,'\\,')}
 export function foldLine(line){const enc=new TextEncoder();let rows=[],row='',size=0;for(const c of line){const n=enc.encode(c).length;if(size+n>75){rows.push(row);row=' ';size=1}row+=c;size+=n}rows.push(row);return rows.join('\r\n')}
 function eventUID(value){let a=0xcbf29ce484222325n,b=0x84222325cbf29ce4n;for(const byte of new TextEncoder().encode(value)){a=BigInt.asUintN(64,(a^BigInt(byte))*0x100000001b3n);b=BigInt.asUintN(64,(b^BigInt(byte))*0x100000001b3n)}return a.toString(16).padStart(16,'0')+b.toString(16).padStart(16,'0')+'@schichtkompass'}
-export async function makeICS({year,month,entries,identity='',location='',reminder=null,now=new Date()}){
+export async function makeICS({year,month,entries,identity='',location='',reminder=null,emojis=false,now=new Date()}){
  const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//SchichtKompass//Spitalpilot 1//DE','CALSCALE:GREGORIAN','X-WR-CALNAME:SchichtKompass','X-WR-TIMEZONE:Europe/Zurich','BEGIN:VTIMEZONE','TZID:Europe/Zurich','BEGIN:DAYLIGHT','DTSTART:19700329T020000','TZOFFSETFROM:+0100','TZOFFSETTO:+0200','TZNAME:CEST','RRULE:FREQ=YEARLY;BYMONTH=3;BYDAY=-1SU','END:DAYLIGHT','BEGIN:STANDARD','DTSTART:19701025T030000','TZOFFSETFROM:+0200','TZOFFSETTO:+0100','TZNAME:CET','RRULE:FREQ=YEARLY;BYMONTH=10;BYDAY=-1SU','END:STANDARD','END:VTIMEZONE'];
  const stamp=now.toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
  for(const e of entries){const d=e.definition;if(!validateDefinition(d))throw new Error('Nicht alle Dienste sind vollständig zugeordnet.');if(d.type==='skip')continue;const date=dateKey(year,month,e.day);const uid=eventUID(normalise(identity)+'|'+date+(e.partCount>1?'|part:'+e.partIndex:''));
- lines.push('BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'SUMMARY:'+escapeICS(calendarSummary(e)),'CLASS:PRIVATE','TRANSP:OPAQUE');
+ const service=serviceForEntry(e);
+ lines.push('BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'SUMMARY:'+escapeICS(styledSummary(e,emojis)),'X-SCHICHTKOMPASS-SERVICE:'+service.id,'X-SCHICHTKOMPASS-SERVICE-NAME:'+escapeICS(service.label),'CLASS:PRIVATE','TRANSP:OPAQUE');
  if(d.type==='allday')lines.push('DTSTART;VALUE=DATE:'+date,'DTEND;VALUE=DATE:'+nextDay(year,month,e.day));else{const overnight=d.end<d.start;lines.push('DTSTART;TZID=Europe/Zurich:'+date+'T'+d.start.replace(':','')+'00','DTEND;TZID=Europe/Zurich:'+(overnight?nextDay(year,month,e.day):date)+'T'+d.end.replace(':','')+'00')}
  const department=departmentForEntry(e),eventLocation=[location,department].filter(Boolean).join(' · ');if(eventLocation)lines.push('LOCATION:'+escapeICS(eventLocation));lines.push('DESCRIPTION:'+escapeICS('Aus dem persönlich geprüften Dienstplan übernommen. Massgeblich bleibt der offizielle Dienstplan.'+(department?'\nAbteilung: '+department:'')+(e.note?'\nZusatz aus der Zeile darunter: '+e.note:'')));
  if(d.type==='shift'&&Number(reminder)>0)lines.push('BEGIN:VALARM','TRIGGER:-PT'+Math.round(Number(reminder))+'M','ACTION:DISPLAY','DESCRIPTION:'+escapeICS(d.name),'END:VALARM');lines.push('END:VEVENT')}

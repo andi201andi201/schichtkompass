@@ -33,3 +33,28 @@ test('Multiple daily services stay bounded to four entries per calendar day',()=
  assert.doesNotThrow(()=>validateICS(head+Array.from({length:124},(_,i)=>event(i)).join('')+tail,month));
  assert.throws(()=>validateICS(head+Array.from({length:125},(_,i)=>event(i)).join('')+tail,month));
 });
+test('Optional duty feeds span months, move corrected events, retain alarms and are revoked together',async()=>{
+ const early='d'.repeat(32),night='e'.repeat(32),unknown='f'.repeat(32);
+ const tagged=(kind,label,title)=>ics(title).replace('SUMMARY:'+title,'X-SCHICHTKOMPASS-SERVICE:'+kind+'\r\nX-SCHICHTKOMPASS-SERVICE-NAME:'+label+'\r\nSUMMARY:'+title+'\r\nBEGIN:VALARM\r\nACTION:DISPLAY\r\nTRIGGER:-PT15M\r\nDESCRIPTION:Reminder\r\nEND:VALARM');
+ const first=tagged(early,'Frühdienst Stroke','☀️ Frühdienst Stroke');
+ assert.equal((await handle(req('PUT',{ics:first,month,readToken:read}),db)).status,200);
+ const otherDate=new Date(Date.UTC(Number(month.slice(0,4)),Number(month.slice(5)),1)),otherMonth=otherDate.toISOString().slice(0,7);
+ const second=tagged(night,'Nachtdienst Stroke','🌙 Nachtdienst Stroke').replaceAll(date,otherMonth.replace('-','')+'06');
+ assert.equal((await handle(req('PUT',{ics:second,month:otherMonth,readToken:read}),db)).status,200);
+ const readFeed=service=>handle(new Request(base+'/feed/'+id+'/'+read+'.ics'+(service?'?dienst='+service:'')),db);
+ const earlyFeed=await(await readFeed(early)).text();assert.match(earlyFeed,/SUMMARY:☀️ Frühdienst/);assert.doesNotMatch(earlyFeed,/SUMMARY:🌙/);assert.match(earlyFeed,/BEGIN:VALARM/);assert.match(earlyFeed,/X-WR-CALNAME:SchichtKompass · Frühdienst Stroke/);
+ assert.equal(((await(await readFeed()).text()).match(/BEGIN:VEVENT/g)||[]).length,2);
+ const index=await(await handle(req('GET'),db)).json();assert.deepEqual(index.services.map(s=>s.count),[1,1]);assert.equal((await handle(req('GET',null,read),db)).status,403);
+ const corrected=tagged(night,'Nachtdienst Stroke','🌙 Korrigierter Nachtdienst');
+ assert.equal((await handle(req('PUT',{ics:corrected,month,readToken:read}),db)).status,200);
+ assert.doesNotMatch(await(await readFeed(early)).text(),/BEGIN:VEVENT/);assert.equal(((await(await readFeed(night)).text()).match(/BEGIN:VEVENT/g)||[]).length,2);
+ assert.equal((await readFeed(unknown)).status,200);assert.doesNotMatch(await(await readFeed(unknown)).text(),/BEGIN:VEVENT/);
+ for(const query of ['?dienst=bad','?dienst=','?dienst=legacy&dienst='+early,'?other=1'])assert.equal((await handle(new Request(base+'/feed/'+id+'/'+read+'.ics'+query),db)).status,404);
+ assert.equal((await handle(req('DELETE'),db)).status,200);assert.equal((await readFeed(early)).status,404);assert.equal((await readFeed(night)).status,404);
+});
+test('Older untagged months remain available as Bisherige Dienste instead of silently disappearing',async()=>{
+ const created=await handle(req('PUT',{ics:ics('Alter Dienst'),month,readToken:read}),db);assert.equal(created.status,200);
+ assert.deepEqual((await created.json()).services,[{id:'legacy',label:'Bisherige Dienste',count:1}]);
+ const response=await handle(new Request(base+'/feed/'+id+'/'+read+'.ics?dienst=legacy'),db);assert.match(await response.text(),/SUMMARY:Alter Dienst/);
+ assert.equal((await handle(req('DELETE'),db)).status,200);
+});

@@ -127,3 +127,39 @@ entries require their own times; a full shift's template is not silently copied
 to each part. Their saved definitions are scoped to the concrete date and part.
 The subscription service accepts up to 124 monthly events within its existing
 size and authentication limits. No database migration is required.
+
+
+## Optionale Emojis und einzelne Dienst-Abos (0.9.4)
+
+Zwei getrennte, lokal gemerkte Optionen sind beim ersten Öffnen ausgeschaltet:
+Emojis im Termintitel und einzelne Kalender-Abos für unterschiedliche Farben.
+Die Emoji-Auswahl gilt für Datei-Export und für den nächsten ausdrücklich
+bestätigten Upload des Monats. Termin-UIDs und Dienst-Abos ändern sich dadurch
+nicht. Bekannte Dienstnamen erhalten passende Symbole; eigene Namen und alle
+Abteilungs-/Tageszusätze bleiben erhalten.
+
+Der normale Gesamtkalender bleibt der Standard. Im optionalen Farbmodus kann
+jede vorhandene Dienstart separat abonniert werden. Die Farbe wird danach in
+der jeweiligen Kalender-App gewählt. Es gibt keinen zusätzlichen Upload je
+Dienst und keine neue Datenbank: alle Feeds filtern dieselben Monatsdaten über
+`?dienst=<stabile ID>`. Uhrzeit, Datum, Tageszusätze und Teil-Dienste ändern die
+Dienst-ID nicht. Offizielle Dienste verwenden zusätzlich ihre PEP-Kennung;
+eigene Definitionen verwenden Kürzel, Bezeichnung und Abteilung. Bei geänderten
+eigenen Bezeichnungen oder Abteilungen kann ein neues Dienst-Abo entstehen.
+
+Einzel- und Gesamtfeed enthalten dieselben stabilen Termin-UIDs. Es soll immer
+nur der Gesamtfeed oder die gewünschte Auswahl an Dienstfeeds angezeigt werden,
+damit keine Doppelanzeige entsteht. Der bestehende Leseschlüssel ist für alle
+Ansichten gültig; eine gefilterte URL ist keine eingeschränkte Freigabe an Dritte.
+Ein Widerruf sperrt gemeinsam sämtliche Ansichten. Bestehende unmarkierte
+Monate bleiben als «Bisherige Dienste» abonnierbar, bis der jeweilige Plan erneut
+gespeichert wurde. Ein Monat ohne einen bestimmten Dienst liefert in dessen
+Abo einen gültigen leeren Kalender. Korrigierte Zuordnungen verschwinden beim
+nächsten Anbieterabruf aus dem bisherigen Dienstfeed und erscheinen im neuen.
+
+Der Kalenderdienst liefert im authentifizierten GET und nach PUT die vorhandenen
+Dienstarten aus allen gespeicherten Monaten. Die API-Route muss GET neben PUT,
+DELETE und OPTIONS exportieren. Das separate Backend muss vor dem Frontend
+veröffentlicht werden. Die bestehende Google-Einschränkung für das erstmalige
+Hinzufügen externer Abos bleibt unverändert; es ist weiterhin keine Google-OAuth-
+Schreibintegration. Die konkreten Abrufintervalle liegen beim Kalenderanbieter.

@@ -8,7 +8,8 @@ export function suggestedCalendar(nav={}){
 export function initialCalendar(saved,nav){return ['iphone','google','timetree-ios','timetree-android'].includes(saved)?saved:suggestedCalendar(nav)}
 export function calendarLinks(feed,base){
  const u=new URL(feed);
- if(u.origin!=='https://schichtkompass-calendar.andi201andi201.chatgpt.site'||!/^\/feed\/[a-f0-9]{64}\/[a-f0-9]{64}\.ics$/.test(u.pathname)||u.search||u.hash)throw Error('Ungültiger Kalender-Link');
+ const services=u.searchParams.getAll('dienst');
+ if(u.origin!=='https://schichtkompass-calendar.andi201andi201.chatgpt.site'||!/^\/feed\/[a-f0-9]{64}\/[a-f0-9]{64}\.ics$/.test(u.pathname)||u.hash||[...u.searchParams.keys()].some(key=>key!=='dienst')||services.length>1||(services.length&&!/^(legacy|[a-f0-9]{32})$/.test(services[0])))throw Error('Ungültiger Kalender-Link');
  return {apple:feed.replace('https:','webcal:'),google:'https://calendar.google.com/calendar/render?cid='+encodeURIComponent(feed.replace('https:','webcal:')),setup:base.split('#')[0]+'#google-abo='+encodeURIComponent(feed)};
 }
 export function showGoogleSetup(){

@@ -14,3 +14,18 @@ test('Subscription requires consent, preserves retry keys, separates people and 
  allowed=false;paint();assert.equal($('subscribe-save').disabled,true);
  await $('subscription-revoke').onclick();assert.equal(calls,2);assert.equal(saved.size,0);assert.equal($('subscription-links').hidden,true);
 });
+test('Individual subscriptions are an optional display choice, share one upload and keep the combined mode available',async()=>{
+ const makeNode=()=>({checked:false,hidden:false,value:'',textContent:'',children:[],attrs:{},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=nodes},setAttribute(k,v){this.attrs[k]=v}});
+ const nodes=new Map();global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,makeNode());return nodes.get(id)},createElement:makeNode};
+ const storage=new Map();global.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
+ global.location={href:'https://schichtkompass.bb-planer.ch/'};
+ const services=[{id:'d'.repeat(32),label:'Frühdienst Stroke',count:2},{id:'e'.repeat(32),label:'Nachtdienst Stroke',count:1}];
+ let calls=[];global.fetch=async(url,options)=>{calls.push(options.method);return Response.json({ok:true,services})};
+ const $=id=>document.getElementById(id);const paint=setupSubscription({canPublish:()=>true,getContent:async()=>'',getServices:()=>services,getMonth:()=> '2026-11',getPerson:()=> 'Synthetic Person',isDemo:()=>false,notify:()=>{}});
+ assert.equal($('subscription-split').checked,false);assert.equal($('subscription-service-mode').hidden,true);
+ $('subscription-split').checked=true;$('subscription-split').onchange();assert.deepEqual(calls,[]);assert.equal($('subscription-service-mode').hidden,false);assert.equal($('subscription-service-list').children.length,2);
+ assert.equal($('subscription-service-list').children[0].children.length,1,'no working links before first upload');
+ $('subscription-consent').checked=true;paint();await $('subscribe-save').onclick();assert.deepEqual(calls,['PUT']);
+ assert.equal($('subscription-combined-links').hidden,true);const link=$('subscription-service-list').children[0].children[1].children[0];assert.equal(new URL(link.href).searchParams.get('dienst'),services[0].id);assert.match(link.href,/^webcal:/);
+ $('subscription-split').checked=false;$('subscription-split').onchange();assert.equal($('subscription-service-mode').hidden,true);assert.equal($('subscription-combined-links').hidden,false);assert.deepEqual(calls,['PUT']);assert.equal(new URL($('subscription-open').href).search,'');
+});
