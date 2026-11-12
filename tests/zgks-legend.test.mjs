@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFileSync} from 'node:fs';
-import {initialZGKSSettings,recognizeZGKS,annotateZGKS,zgksDefinition} from '../dist/zgks-legend.js';
+import {initialZGKSSettings,recognizeZGKS,annotateZGKS,zgksDefinition,selectZGKSDefinition} from '../dist/zgks-legend.js';
 import {groupSymbols,validateDefinition,makeICS} from '../dist/core.js';
 const registry=JSON.parse(readFileSync(new URL('../dist/zgks-legend-data.json',import.meta.url)));
 const ref=id=>registry.symbols.find(r=>r.id===String(id));
@@ -64,13 +64,14 @@ test('Custom times are scoped by official icon, context and effective period',()
  assert.equal(definition(182,{}, {},[p]).definition.start,'06:30');
  assert.equal(definition(182,{year:2026,month:12},{},[p]).definition.type,'');
  assert.equal(definition(211,{}, {},[p]).definition.start,'07:00');
- assert.equal(definition(182,{},{note:'StU'},[p]).definition.type,'');
+ const external=definition(182,{},{note:'StU'},[p]).definition;assert.equal(external.type,'shift');assert.equal(external.start,'07:00');assert.equal(external.department,'Stroke Unit');
 });
-test('Known units and additional flags require separate confirmation the first time',()=>{
- for(const extra of [{note:'StU'},{note:'ZusA'},{note:'DIV'},{note:'MN'}, {otherDepartment:true}]){
-  const result=definition(182,{},extra);assert.equal(result.definition.type,'');assert.match(result.reason,/Abteilung oder Zusatz/);
+test('Known departments and supplements retain the official shift without a second definition',()=>{
+ for(const extra of [{note:'StU'},{note:'ZusA'},{note:'DIV'},{note:'MN'},{note:'MS ZusA'}]){
+  const result=definition(182,{},extra);assert.equal(result.definition.type,'shift');assert.equal(validateDefinition(result.definition),true);assert.equal(result.reason,'');
  }
  const d=definition(182,{}, {note:'StU'}).definition;assert.equal(d.department,'Stroke Unit');assert.equal(d.start,'07:00');
+ const unknown=definition(182,{}, {otherDepartment:true});assert.equal(unknown.definition.type,'shift');assert.equal(unknown.definition.start,'07:00');assert.equal(validateDefinition(unknown.definition),false);assert.match(unknown.reason,/Abteilung/);
 });
 test('Automatic legend output exports the documented night shift and an all-day absence',async()=>{
  const entries=[{...group(1470),day:31,definition:definition(1470).definition},{...group(9510),day:1,definition:definition(9510).definition}];
@@ -78,4 +79,40 @@ test('Automatic legend output exports the documented night shift and an all-day 
  assert.match(ics,/DTSTART;TZID=Europe\/Zurich:20270131T221000/);
  assert.match(ics,/DTEND;TZID=Europe\/Zurich:20270201T071100/);
  assert.match(ics,/DTSTART;VALUE=DATE:20270101/);assert.equal((ics.match(/BEGIN:VEVENT/g)||[]).length,2);
+});
+test('All 54 official symbols survive PDF rendering and a small white cell margin',()=>{
+ const fixture=JSON.parse(readFileSync(new URL('./fixtures/zgks-rendered.json',import.meta.url)));
+ assert.equal(fixture.samples.length,108);
+ for(const s of fixture.samples)assert.equal(recognizeZGKS([...Buffer.from(s.rgb,'base64')],registry)?.id,s.id,s.id+' margin '+s.padding);
+});
+test('Mixed colours or underlines cannot silently choose between different duties',()=>{
+ for(const [a,b]of [[146,2146],[146,1146],[2650,9650],[3434,9620],[9530,9531],[9510,9511]]){
+  const mixed=ref(a).feature.map((n,i)=>(n+ref(b).feature[i])/2);
+  assert.equal(recognizeZGKS(mixed,registry),null,a+'/'+b);
+ }
+});
+test('Existing roster lettering and moon variants resolve to named official services',()=>{
+ const references=JSON.parse(readFileSync(new URL('../dist/hospital-symbols.json',import.meta.url)));
+ const expected={2:'5038',20:'2',21:'563',29:'563',30:'2650',32:'2650',39:'5038',40:'5038',63:'5542',15:'1470',16:'1470',22:'1470',41:'1470',52:'1470',58:'1470'};
+ for(const [old,id]of Object.entries(expected)){
+  const sample=references.find(r=>r.id==='hospital-'+old),annotation=annotateZGKS({...sample,note:'StU'},registry,{references});
+  assert.ok(annotation.serviceKey.startsWith('zgks:'+id+'|'),old);const result=zgksDefinition(annotation,[],registry,{year:2027,month:1});assert.equal(validateDefinition(result.definition),true,old);assert.equal(result.definition.name,ref(id).name);assert.equal(result.definition.department,'Stroke Unit');
+ }
+ for(const id of [1,5,8,19,55])assert.equal(annotateZGKS(references.find(r=>r.id==='hospital-'+id),registry,{references}),null,'Blank '+id);
+ assert.equal(annotateZGKS(references.find(r=>r.id==='hospital-13'),registry,{references}),null,'Legacy E is ambiguous');
+});
+test('One explicit legend choice fills every field and can teach an unfamiliar pictogram',()=>{
+ const references=JSON.parse(readFileSync(new URL('../dist/hospital-symbols.json',import.meta.url))),sample=references.find(r=>r.id==='hospital-35');
+ assert.equal(annotateZGKS(sample,registry,{references}),null);
+ const selected=selectZGKSDefinition(sample,'9510',registry,{year:2026,month:11});assert.equal(selected.definition.name,'Ferien Monatslohn');assert.equal(selected.definition.type,'allday');assert.equal(validateDefinition(selected.definition),true);
+ const profile={...sample,zgksId:selected.id,zgksPeriod:selected.period,contextKey:'home',definition:selected.definition};
+ const learned=annotateZGKS(sample,registry,{references,profiles:[profile]});assert.equal(learned.serviceKey,'zgks:9510');assert.equal(zgksDefinition(learned,[profile],registry,{year:2026,month:11}).source,'custom');
+ const freeProfile={...profile,zgksId:'9501',definition:ref(9501)};assert.equal(annotateZGKS(sample,registry,{references,profiles:[freeProfile]}).serviceKey,'free');
+ const blank=references.find(r=>r.id==='hospital-1');assert.equal(annotateZGKS(blank,registry,{references,profiles:[{...blank,zgksId:'182',definition:ref(182)}]}),null,'Saved mistakes never turn blank cells into shifts');
+ const earlier=selectZGKSDefinition(group(182),'182',registry,{year:2026,month:11});assert.equal(earlier.period,'before:2027-01-01');assert.equal(earlier.definition.start,'07:00');assert.equal(validateDefinition(earlier.definition),true);
+ assert.equal(definition(182,{year:2026,month:11}).definition.type,'','Automatic matching still respects the document date');
+ const correction={...ref(2),contextKey:'home',zgksId:'182',zgksPeriod:'from:2027-01-01',definition:ref(182)};
+ assert.equal(annotateZGKS(ref(2),registry,{profiles:[correction],year:2027,month:1}).serviceKey,'zgks:182','An explicit correction is remembered');
+ assert.equal(annotateZGKS(ref(2),registry,{profiles:[correction],year:2026,month:11}).serviceKey,'zgks:2','Corrections do not cross the effective period');
+ assert.equal(annotateZGKS({...ref(2),note:'StU'},registry,{profiles:[correction],year:2027,month:1}).serviceKey,'zgks:2|unit:STU','Corrections stay scoped to the department');
 });

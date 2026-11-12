@@ -9,7 +9,7 @@ export function groupSymbols(cells,threshold=.075){
  for(const cell of cells){
   let best=cell.serviceKey?groups.find(g=>g.serviceKey===cell.serviceKey):null,dist=best?0:Infinity;
   if(!best)for(const g of groups){if(cell.serviceKey&&g.serviceKey&&cell.serviceKey!==g.serviceKey)continue;if(cell.contextKey&&g.contextKey&&cell.contextKey!==g.contextKey)continue;const d=featureDistance(cell.feature,g.feature);if(d<dist){dist=d;best=g}}
-  if(!best||dist>threshold){best={id:'g'+groups.length,feature:cell.feature,thumb:cell.thumb,serviceKey:cell.serviceKey,recognizedCode:cell.recognizedCode,contextKey:cell.contextKey,otherDepartment:cell.otherDepartment,requiresDepartment:cell.requiresDepartment,departmentCode:cell.departmentCode,departmentLabel:cell.departmentLabel,supplementLabels:cell.supplementLabels,notes:[],variants:[],days:[],definition:null,matched:false};groups.push(best)}
+  if(!best||dist>threshold){best={id:'g'+groups.length,feature:cell.feature,thumb:cell.thumb,serviceKey:cell.serviceKey,recognizedCode:cell.recognizedCode,legacyCode:cell.legacyCode,contextKey:cell.contextKey,otherDepartment:cell.otherDepartment,requiresDepartment:cell.requiresDepartment,departmentCode:cell.departmentCode,departmentLabel:cell.departmentLabel,supplementLabels:cell.supplementLabels,notes:[],variants:[],days:[],definition:null,matched:false};groups.push(best)}
   if(!best.variants.some(v=>featureDistance(v.feature,cell.feature)<.01))best.variants.push({feature:cell.feature,thumb:cell.thumb});
   if(cell.note&&!best.notes.includes(cell.note))best.notes.push(cell.note);best.days.push(cell.day);assigned.push({...cell,groupId:best.id,distance:dist});
  }

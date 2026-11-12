@@ -86,3 +86,26 @@ Browserdaten sind an die jeweilige Website-Adresse gebunden. Vor einem Wechsel
 können Nutzer ihre eigene Legende und Abo-Verwaltungsschlüssel an der bisherigen
 Adresse sichern und an der neuen Adresse wiederherstellen. Die Schlüsseldatei
 ist vertraulich und gehört niemals ins Repository oder in öffentliche Links.
+
+## Erkennung und vollständige Zuordnung (0.9.2)
+
+Die offizielle Legende wird auch für erkennbare ältere Buchstabenvarianten
+verwendet. Bereits als Spätdienst definiertes C, Büro-Kürzel Bü, PIL-Varianten
+und die bekannten Halbmond-Symbole werden mit ihren passenden offiziellen
+Definitionen verbunden. Mehrdeutige E-/S-/M-Varianten bleiben farbabhängig.
+Die Bildprüfung toleriert weisse Zellränder und unterschiedliche PDF-Rasterung;
+108 separat aus den Legenden-PDFs gerasterte Symbolausschnitte decken alle
+54 offiziellen Symbole ab. Gemischte Farben/Unterstreichungen werden abgelehnt.
+
+Erkannte Abteilungen (StU, MN, MS) und Zusätze (ZusA, DIV) verlangen keine erneute
+Eingabe des Dienstnamens oder der Zeiten. Bei einer unbekannten roten Abteilung
+fehlt nur die Abteilung. Für nicht eindeutig lesbare Symbole füllt die Auswahl
+aus der offiziellen Legende Name, Kalenderart und Zeiten gemeinsam aus. Solche
+Zuordnungen können wie eigene Legenden lokal gemerkt werden, auch für freie Tage.
+
+Die Dokumentgültigkeit bleibt erhalten: Präsenzzeiten ab Januar 2027, Absenzen
+ab Oktober 2026. Bei älteren Plänen bleiben bestehende eigene Zuordnungen
+verwendbar. Eine explizite gemeinsame Übernahme der offiziellen Angaben für
+diesen konkreten Monat ersetzt die frühere manuelle Eingabe pro Dienst.
+Unbekannte Symbole werden dabei nicht geraten. Die ursprünglichen PDFs und
+vollständige Dienstpläne bleiben ausserhalb des veröffentlichten Quellcodes.
