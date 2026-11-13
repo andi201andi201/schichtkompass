@@ -3,7 +3,7 @@ test('Subscription requires consent, preserves retry keys, separates people and 
  const nodes=new Map();global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,{checked:false,hidden:false,value:'',textContent:''});return nodes.get(id)}};
  const saved=new Map();global.localStorage={getItem:k=>saved.get(k),setItem:(k,v)=>saved.set(k,v),removeItem:k=>saved.delete(k)};
  const $=id=>document.getElementById(id);let person='Alex Test',allowed=true,calls=0,errors=[],target='iphone';
- global.confirm=()=>true;global.fetch=async(url,options)=>{calls++;assert.ok(saved.size,'keys saved before request');return new Response('{"ok":true}',{status:200})};
+ global.confirm=()=>true;global.fetch=async(url,options)=>{calls++;if(options.method==='PUT')assert.deepEqual(Object.keys(JSON.parse(options.body)).sort(),['ics','month','readToken']);assert.ok(saved.size,'keys saved before request');return new Response('{"ok":true}',{status:200})};
  global.location={href:'https://schichtkompass.bb-planer.ch/#old-fragment'};
  const paint=setupSubscription({getTarget:()=>target,canPublish:()=>allowed,getContent:async()=>'',getMonth:()=> '2026-11',getPerson:()=>person,isDemo:()=>false,notify:m=>errors.push(m)});
  assert.equal($('subscribe-save').disabled,true);await $('subscribe-save').onclick();assert.equal(calls,0);
@@ -14,29 +14,14 @@ test('Subscription requires consent, preserves retry keys, separates people and 
  allowed=false;paint();assert.equal($('subscribe-save').disabled,true);
  await $('subscription-revoke').onclick();assert.equal(calls,2);assert.equal(saved.size,0);assert.equal($('subscription-links').hidden,true);
 });
-test('Individual subscriptions are an optional display choice, share one upload and keep the combined mode available',async()=>{
- const makeNode=()=>({checked:false,hidden:false,value:'',textContent:'',children:[],attrs:{},append(...nodes){this.children.push(...nodes)},replaceChildren(...nodes){this.children=nodes},setAttribute(k,v){this.attrs[k]=v}});
- const nodes=new Map();global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,makeNode());return nodes.get(id)},createElement:makeNode};
- const storage=new Map();global.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
- global.location={href:'https://schichtkompass.bb-planer.ch/'};
- const services=[{id:'frueh',label:'Frühdienst',count:2},{id:'nacht',label:'Nachtdienst',count:1}];
- let calls=[];global.fetch=async(url,options)=>{calls.push(options.method);return Response.json({ok:true,services:[],groups:services})};
- const $=id=>document.getElementById(id);const paint=setupSubscription({canPublish:()=>true,getContent:async()=>'',getServices:()=>services,getMonth:()=> '2026-11',getPerson:()=> 'Synthetic Person',isDemo:()=>false,notify:()=>{}});
- assert.equal($('subscription-split').checked,false);assert.equal($('subscription-service-mode').hidden,true);
- $('subscription-split').checked=true;$('subscription-split').onchange();assert.deepEqual(calls,[]);assert.equal($('subscription-service-mode').hidden,false);assert.equal($('subscription-service-list').children.length,2);
- assert.equal($('subscription-service-list').children[0].children.length,1,'no working links before first upload');
- $('subscription-consent').checked=true;paint();await $('subscribe-save').onclick();assert.deepEqual(calls,['PUT']);
- assert.equal($('subscription-combined-links').hidden,true);const link=$('subscription-service-list').children[0].children[1].children[0];assert.equal(new URL(link.href).searchParams.get('gruppe'),services[0].id);assert.match(link.href,/^webcal:/);
- $('subscription-split').checked=false;$('subscription-split').onchange();assert.equal($('subscription-service-mode').hidden,true);assert.equal($('subscription-combined-links').hidden,false);assert.deepEqual(calls,['PUT']);assert.equal(new URL($('subscription-open').href).search,'');
-});
-test('Changing emoji display updates an existing subscription without a new roster, and rapid choices settle on the latest value',async()=>{
- const nodes=new Map();global.document={getElementById(id){if(!nodes.has(id))nodes.set(id,{checked:false,hidden:false,value:'',textContent:''});return nodes.get(id)}};
- const keys={id:'a'.repeat(64),read:'b'.repeat(64),edit:'c'.repeat(64),identity:'d'.repeat(64),published:true};const storage=new Map([['schichtkompass-subscription-v1',JSON.stringify(keys)]]);global.localStorage={getItem:k=>storage.get(k),setItem:(k,v)=>storage.set(k,v),removeItem:k=>storage.delete(k)};
- global.location={href:'https://schichtkompass.bb-planer.ch/'};let enabled=true,calls=[],release;
- global.fetch=async(url,options)=>{calls.push({method:options.method,body:JSON.parse(options.body)});if(calls.length===1)await new Promise(resolve=>release=resolve);return Response.json({ok:true})};
- const paint=setupSubscription({canPublish:()=>false,getContent:()=>{throw Error('No roster should be read')},getEmojis:()=>enabled,getMonth:()=>'',getPerson:()=>'',isDemo:()=>false,notify:()=>{}});
- const first=paint.updateEmojis();await new Promise(resolve=>setImmediate(resolve));enabled=false;await paint.updateEmojis();release();await first;
- assert.deepEqual(calls,[{method:'PATCH',body:{emojis:true}},{method:'PATCH',body:{emojis:false}}]);assert.match(document.getElementById('emoji-sync-status').textContent,/ohne Emojis.*gespeichert/);
- assert.equal(document.getElementById('subscription-consent').checked,false);assert.equal(document.getElementById('emoji-apply').hidden,false);
- global.fetch=async()=>new Response('{}',{status:503});await paint.updateEmojis();assert.match(document.getElementById('emoji-sync-status').textContent,/Nicht gespeichert/);assert.equal(document.getElementById('emoji-apply').textContent,'Erneut versuchen');
+test('Retired preferences cannot enable hidden modes or send background display updates',()=>{
+ const forbidden=new Set(['calendar-emojis','emoji-apply','subscription-split','subscription-service-list','subscription-combined-links']);
+ const nodes=new Map();global.document={getElementById(id){assert.equal(forbidden.has(id),false);if(!nodes.has(id))nodes.set(id,{checked:false,hidden:false,value:'',textContent:''});return nodes.get(id)}};
+ const keys={id:'a'.repeat(64),read:'b'.repeat(64),edit:'c'.repeat(64),identity:'d'.repeat(64),published:true};
+ const store=new Map([['schichtkompass-subscription-v1',JSON.stringify(keys)],['schichtkompass-emojis-v1','true'],['schichtkompass-separate-duties-v1','true']]);
+ global.localStorage={getItem:k=>store.get(k),setItem:(k,v)=>store.set(k,v),removeItem:k=>store.delete(k)};
+ global.location={href:'https://schichtkompass.bb-planer.ch/'};global.fetch=()=>{throw Error('No network update is needed to open the page')};
+ const paint=setupSubscription({canPublish:()=>false,getContent:()=>'',getMonth:()=>'',getPerson:()=>'',isDemo:()=>false,notify:()=>{}});paint();
+ assert.equal(store.size,1);assert.equal(store.get('schichtkompass-subscription-v1'),JSON.stringify(keys));
+ assert.equal(new URL(nodes.get('subscription-open').href).search,'');assert.equal(nodes.get('subscription-links').hidden,false);
 });

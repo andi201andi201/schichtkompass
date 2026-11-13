@@ -129,75 +129,15 @@ The subscription service accepts up to 124 monthly events within its existing
 size and authentication limits. No database migration is required.
 
 
-## Optionale Emojis und einzelne Dienst-Abos (0.9.4)
+## Vereinfachter Kalenderexport (0.9.7)
 
-Zwei getrennte, lokal gemerkte Optionen sind beim ersten Öffnen ausgeschaltet:
-Emojis im Termintitel und einzelne Kalender-Abos für unterschiedliche Farben.
-Die Emoji-Auswahl gilt für Datei-Export und für den nächsten ausdrücklich
-bestätigten Upload des Monats. Termin-UIDs und Dienst-Abos ändern sich dadurch
-nicht. Bekannte Dienstnamen erhalten passende Symbole; eigene Namen und alle
-Abteilungs-/Tageszusätze bleiben erhalten.
+Es gibt einen Kalender mit allen bestätigten Diensten. Die optionalen Emoji-Titel
+und die Auswahl einzelner Kalender für Dienstfarben wurden entfernt. Neue
+Exporte verwenden ausschliesslich die ursprünglichen Dienstbezeichnungen.
 
-Der normale Gesamtkalender bleibt der Standard. Im optionalen Farbmodus kann
-jede vorhandene Dienstart separat abonniert werden. Die Farbe wird danach in
-der jeweiligen Kalender-App gewählt. Es gibt keinen zusätzlichen Upload je
-Dienst und keine neue Datenbank: alle Feeds filtern dieselben Monatsdaten über
-`?dienst=<stabile ID>`. Uhrzeit, Datum, Tageszusätze und Teil-Dienste ändern die
-Dienst-ID nicht. Offizielle Dienste verwenden zusätzlich ihre PEP-Kennung;
-eigene Definitionen verwenden Kürzel, Bezeichnung und Abteilung. Bei geänderten
-eigenen Bezeichnungen oder Abteilungen kann ein neues Dienst-Abo entstehen.
-
-Einzel- und Gesamtfeed enthalten dieselben stabilen Termin-UIDs. Es soll immer
-nur der Gesamtfeed oder die gewünschte Auswahl an Dienstfeeds angezeigt werden,
-damit keine Doppelanzeige entsteht. Der bestehende Leseschlüssel ist für alle
-Ansichten gültig; eine gefilterte URL ist keine eingeschränkte Freigabe an Dritte.
-Ein Widerruf sperrt gemeinsam sämtliche Ansichten. Bestehende unmarkierte
-Monate bleiben als «Bisherige Dienste» abonnierbar, bis der jeweilige Plan erneut
-gespeichert wurde. Ein Monat ohne einen bestimmten Dienst liefert in dessen
-Abo einen gültigen leeren Kalender. Korrigierte Zuordnungen verschwinden beim
-nächsten Anbieterabruf aus dem bisherigen Dienstfeed und erscheinen im neuen.
-
-Der Kalenderdienst liefert im authentifizierten GET und nach PUT die vorhandenen
-Dienstarten aus allen gespeicherten Monaten. Die API-Route muss GET neben PUT,
-DELETE und OPTIONS exportieren. Das separate Backend muss vor dem Frontend
-veröffentlicht werden. Die bestehende Google-Einschränkung für das erstmalige
-Hinzufügen externer Abos bleibt unverändert; es ist weiterhin keine Google-OAuth-
-Schreibintegration. Die konkreten Abrufintervalle liegen beim Kalenderanbieter.
-
-
-## Vier optionale Farbgruppen (0.9.5)
-
-Der Farbmodus bietet genau vier Kalender: Frühdienst, Spätdienst, Nachtdienst
-und Sonstiges. Die entsprechende Stroke-Variante gehört zur jeweiligen
-Dienstgruppe. Büro, Weiterbildung, Ferien und alle übrigen Termine gehören
-zu Sonstiges. Die originalen Dienstnamen, Abteilungen, Zeiten und Emojis
-bleiben innerhalb der Termine erhalten. Auch leere Gruppen können vorab
-abonniert werden und füllen sich mit später gespeicherten Monaten.
-
-Gruppenlinks verwenden `?gruppe=frueh|spaet|nacht|sonstiges`. Frühere Links
-mit `?dienst=<ID>` funktionieren unverändert weiter. Neue Monatsdaten tragen
-eine explizite Gruppenkennung. Für ältere gespeicherte Monate wird die Gruppe
-aus Dienstbezeichnung und Ganztagsart bestimmt; unbekannte Titel landen in
-Sonstiges. Dafür muss kein alter Monat neu hochgeladen werden. Frontend und
-Kalenderdienst verwenden dieselbe Klassifikation aus `duty-groups.js`.
-
-
-## Emoji-Aktualisierung bestehender Abos (0.9.6)
-
-Der Emoji-Schalter aktualisiert jetzt auch alle bereits gespeicherten Monate
-über einen authentifizierten PATCH-Aufruf. «Emojis im Abo aktualisieren»
-übernimmt eine bereits gewählte Einstellung erneut, ohne Originalplan oder
-neuen Monatsupload. Der Beispielmodus verändert keine bestehenden Abos.
-Die Oberfläche zeigt Speichern, Erfolg und Fehler mit Wiederholungsmöglichkeit.
-Schnelle Auswahlwechsel werden in Reihenfolge verarbeitet; die letzte Auswahl
-gilt. Beim Monatsupload wird die Auswahl ebenfalls auf die bestehenden Monate
-angewendet. Das Abrufintervall bleibt beim Kalenderanbieter.
-
-Originaltitel werden als private ICS-Zusatzeigenschaft erhalten, damit das
-Ausschalten den unveränderten Dienstnamen wiederherstellt. Ältere gespeicherte
-Titel werden ohne erneuten Planimport umgestellt. UID, Datum, Zeiten,
-Dienstgruppe, Abteilung und Alarme bleiben bestehen. Änderungen erhöhen
-SEQUENCE und setzen LAST-MODIFIED sowie DTSTAMP; spätere Monatsuploads setzen
-die Fassung nicht zurück. Identische wiederholte Einstellungen ändern keine
-Terminfassung. Es gibt keine neue Datenbank oder Migration. Die API-Route
-exportiert PATCH zusätzlich zu den bisherigen Methoden.
+Der Kalenderdienst gibt auch bereits gespeicherte Termine mit ihren ursprünglichen
+Titeln aus. UID, Uhrzeiten, Abteilungen, Alarme und private Zugangsschlüssel bleiben
+erhalten. Eine stabile Fassungserhöhung meldet die Titelkorrektur an Kalender-Apps,
+ohne dafür gespeicherte Monate umzuschreiben. Die alte PATCH-Anzeigeeinstellung ist
+entfernt. Bereits ausgegebene Einzel-Links bleiben ausschliesslich zur
+Abwärtskompatibilität lesbar; neue Einzel-Abos werden nicht mehr angeboten.

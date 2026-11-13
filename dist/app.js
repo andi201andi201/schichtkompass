@@ -2,7 +2,6 @@ import zgksRegistry from './zgks-legend-data.json';
 import {ZGKS_SETTINGS_KEY,initialZGKSSettings,annotateZGKS,zgksDefinition,zgksIdFor,selectZGKSDefinition,strokeLegend} from './zgks-legend.js';
 import {initialCalendar,showGoogleSetup} from './calendar-choice.js';
 import {setupSubscription} from './subscription.js';
-import {colourGroupCatalog,styledSummary} from './calendar-style.js';
 import {MONTHS,dayCount,normalise,featureDistance,groupSymbols,validateDefinition,shiftMinutes,makeICS,detectGrid,findPerson,pad} from './core.js';
 import {imagePlacements,imagesAtCell,pixelRGBA} from './pdf-images.js';
 import {annotateSymbol,definitionFor,isEmptySymbol} from './symbol-registry.js';
@@ -140,9 +139,9 @@ function renderReview(){const note=$('#zgks-review-note');note.hidden=!zgks.enab
 function exportAllowed(){return $('#confirmed').checked&&entries().every(e=>validateDefinition(e.definition))&&entries().some(e=>e.definition?.type!=='skip')}
 let calendarFileURL;
 function clearCalendarFile(){if(calendarFileURL)URL.revokeObjectURL(calendarFileURL);calendarFileURL=null;$('#export-success').hidden=true;$('#export-success').textContent=''}
-function updateExport(){renderEmojiPreview();const enabled=exportAllowed();$('#download').disabled=!enabled;$('#share-calendar').disabled=!enabled;if(!enabled)clearCalendarFile();refreshSubscription?.()}
+function updateExport(){const enabled=exportAllowed();$('#download').disabled=!enabled;$('#share-calendar').disabled=!enabled;if(!enabled)clearCalendarFile();refreshSubscription?.()}
 function calendarFileName(){return`SchichtKompass-${year()}-${pad(month())}${state.isDemo?'-BEISPIEL':''}.ics`}
-async function calendarContent(){return makeICS({year:year(),month:month(),entries:entries(),identity:$('#person').value,location:$('#location').value.trim(),reminder:$('#reminder').value,emojis:$('#calendar-emojis').checked})}
+async function calendarContent(){return makeICS({year:year(),month:month(),entries:entries(),identity:$('#person').value,location:$('#location').value.trim(),reminder:$('#reminder').value})}
 function updateCalendarGuide(){
  const target=$('#calendar-target').value,timetree=target.startsWith('timetree'),ios=target==='iphone'||target==='timetree-ios',shared=$('#timetree-sharing').value==='shared';
  $('#timetree-mode').hidden=!timetree;$('#timetree-help').hidden=!timetree;$('#calendar-guide').hidden=!timetree;$('#selected-calendar-name').textContent=$('#calendar-target').selectedOptions[0]?.textContent||'Bitte auswählen';
@@ -168,9 +167,6 @@ $('#confirmed').onchange=updateExport;
 $('#calendar-target').onchange=()=>{rememberCalendar($('#calendar-target').value);updateCalendarGuide();refreshSubscription?.()};
 $('#location').oninput=clearCalendarFile;$('#reminder').onchange=clearCalendarFile;
 $('#timetree-sharing').onchange=updateCalendarGuide;
-try{$('#calendar-emojis').checked=localStorage.getItem('schichtkompass-emojis-v1')==='true'}catch{}
-function renderEmojiPreview(){const box=$('#emoji-preview');box.hidden=!$('#calendar-emojis').checked;box.textContent=[...new Set(entries().filter(e=>validateDefinition(e.definition)&&e.definition.type!=='skip').map(e=>styledSummary(e,true)))].slice(0,3).join('  ·  ')}
-$('#calendar-emojis').onchange=()=>{try{localStorage.setItem('schichtkompass-emojis-v1',String($('#calendar-emojis').checked))}catch{}clearCalendarFile();renderEmojiPreview();refreshSubscription?.();void refreshSubscription?.updateEmojis?.()};
 $('#download').onclick=async()=>{if(!exportAllowed())return;try{const content=await calendarContent();clearCalendarFile();calendarFileURL=URL.createObjectURL(new Blob([content],{type:'text/calendar;charset=utf-8'}));$('#export-success').hidden=false;$('#export-success').textContent=$('#calendar-target').value.startsWith('timetree')?'Kalenderdatei erstellt. Noch nicht in TimeTree importiert: Folge der Anleitung oben über deinen Gerätekalender.':'Kalenderdatei erstellt. Übernimm sie mit der Anleitung oben in deinen Kalender. Der Export aktualisiert sich nicht automatisch.';const fileLink=document.createElement('a');fileLink.href=calendarFileURL;fileLink.download=calendarFileName();fileLink.textContent='Kalenderdatei herunterladen (.ics)';fileLink.className='calendar-file-link';$('#export-success').append(document.createElement('br'),fileLink);fileLink.click();notice('Kalenderdatei bereit. Falls der Download nicht startet, tippe unten auf den Dateilink.','success')}catch(e){notice(e.message,'error')}};
 $('#share-calendar').onclick=async()=>{if(!exportAllowed())return;try{const content=await calendarContent(),file=new File([content],calendarFileName(),{type:'text/calendar'});await navigator.share({files:[file],title:'SchichtKompass Kalenderdatei'});$('#export-success').hidden=false;$('#export-success').textContent='Kalenderdatei an das gewählte Teilen-Ziel übergeben. Prüfe dort den Import. Es wurden keine Termine direkt in TimeTree gespeichert.'}catch(e){if(e.name!=='AbortError')notice('Teilen ist in diesem Browser nicht möglich. Verwende «Kalenderdatei erstellen».','error')}};
 updateCalendarGuide();
@@ -179,7 +175,7 @@ $('#reset').onclick=async()=>{clearCalendarFile();++state.loadId;if(state.pdf)aw
 $('#start-person').oninput=()=>{$('#person').value=$('#start-person').value};$('#person').oninput=()=>{$('#start-person').value=$('#person').value};
 goto(0);
 
-var refreshSubscription=setupSubscription({getTarget:()=>$('#calendar-target').value,canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getEmojis:()=>$('#calendar-emojis').checked,getServices:()=>colourGroupCatalog(entries().filter(e=>validateDefinition(e.definition))),getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
+var refreshSubscription=setupSubscription({getTarget:()=>$('#calendar-target').value,canPublish:()=>$('#confirmed').checked&&entries().length>0&&entries().every(e=>validateDefinition(e.definition)),getContent:calendarContent,getMonth:()=>year()+'-'+pad(month()),getPerson:()=>$('#person').value,isDemo:()=>state.isDemo,notify:notice});
 
 function rememberCalendar(value){try{localStorage.setItem('schichtkompass-calendar-choice',value)}catch{}for(const radio of document.querySelectorAll('[name="calendar-choice"]'))radio.checked=radio.value===value;$('#file-input').disabled=!value;$('#dropzone').setAttribute('aria-disabled',String(!value));}
 let remembered;try{remembered=localStorage.getItem('schichtkompass-calendar-choice')}catch{}

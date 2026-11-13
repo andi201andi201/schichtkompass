@@ -1,6 +1,6 @@
 const allowedOrigins=new Set(['https://andi201andi201.github.io','https://schichtkompass.bb-planer.ch','https://schichtkompass-domain.andi201andi201.chatgpt.site']);
-import {DUTY_GROUPS,dutyGroup} from './duty-groups.js';
-import {rewriteCalendar} from './calendar-display.mjs';
+import {DUTY_GROUPS,dutyGroup} from './legacy-duty-groups.js';
+import {rewriteCalendar,plainStoredCalendar} from './calendar-display.mjs';
 const tokenOK=v=>typeof v==='string'&&/^[a-f0-9]{64}$/.test(v);
 const serviceOK=value=>value==='legacy'||/^[a-f0-9]{32}$/.test(value||'');
 const unfold=ics=>ics.replace(/\r\n[ \t]/g,'');
@@ -62,12 +62,6 @@ async function readJSON(request,limit=100000){
  const bytes=new Uint8Array(size);let offset=0;for(const c of chunks){bytes.set(c,offset);offset+=c.length}
  return JSON.parse(new TextDecoder().decode(bytes));
 }
-async function updateEmojis(db,id,editHash,enabled){
- const data=await db.prepare('SELECT key,month,ics FROM months WHERE calendar=? ORDER BY month').bind(id).all(),now=Date.now();
- const changes=data.results.map(row=>({...row,next:validateICS(rewriteCalendar(row.ics,{emojis:enabled}),row.month)})).filter(row=>row.next!==row.ics);
- if(changes.length)await db.batch([...changes.map(row=>db.prepare('UPDATE months SET ics=? WHERE key=? AND calendar=? AND ics=? AND EXISTS(SELECT 1 FROM calendars WHERE id=? AND edit_hash=?)').bind(row.next,row.key,id,row.ics,id,editHash)),db.prepare('UPDATE calendars SET updated=? WHERE id=? AND edit_hash=?').bind(now,id,editHash)]);
- return changes.length;
-}
 export async function handle(request,db){
  const url=new URL(request.url),parts=url.pathname.split('/').filter(Boolean);
  const origin=request.headers.get('Origin');
@@ -81,12 +75,12 @@ export async function handle(request,db){
   const row=await db.prepare('SELECT read_hash, updated FROM calendars WHERE id=?').bind(id).first();
   if(!row||row.read_hash!==await hash(token))return reply({error:'Nicht gefunden'},404);
   const data=await db.prepare('SELECT ics FROM months WHERE calendar=? ORDER BY month').bind(id).all();
-  return new Response(request.method==='HEAD'?null:mergeCalendars(data.results,service,group),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'inline; filename="SchichtKompass.ics"'}});
+  return new Response(request.method==='HEAD'?null:mergeCalendars(data.results.map(row=>({...row,ics:plainStoredCalendar(row.ics)})),service,group),{headers:{...headers,'Content-Type':'text/calendar; charset=utf-8','Content-Disposition':'inline; filename="SchichtKompass.ics"'}});
  }
  if(parts[0]!=='api'||parts[1]!=='calendar')return reply({error:'Nicht gefunden'},404);
  if(!allowedOrigins.has(origin))return reply({error:'Ursprung nicht erlaubt'},403);
- if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET, PUT, PATCH, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
- if(['PUT','PATCH'].includes(request.method)){
+ if(request.method==='OPTIONS')return new Response(null,{status:204,headers:{...headers,'Access-Control-Allow-Methods':'GET, PUT, DELETE, OPTIONS','Access-Control-Allow-Headers':'Authorization, Content-Type'}});
+ if(request.method==='PUT'){
   const now=Date.now(),bucket=Math.floor(now/3600000),ip=request.headers.get('cf-connecting-ip')||'unknown';
   const key=await hash(ip+':'+bucket);
   const row=await db.prepare('INSERT INTO limits(key,count,expires) VALUES(?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count').bind(key,now+7200000).first();
@@ -106,11 +100,6 @@ export async function handle(request,db){
   if(!existing)return reply({ok:true});
   await db.batch([db.prepare('DELETE FROM months WHERE calendar=?').bind(id),db.prepare('DELETE FROM calendars WHERE id=? AND edit_hash=?').bind(id,editHash)]);return reply({ok:true});
  }
- if(request.method==='PATCH'){
-  if(!existing)return reply({error:'Nicht gefunden'},404);
-  try{const body=await readJSON(request,1024);if(typeof body.emojis!=='boolean')throw Error('Ungültige Auswahl');const updatedMonths=await updateEmojis(db,id,editHash,body.emojis);return reply({ok:true,emojis:body.emojis,updatedMonths});}
-  catch{return reply({error:'Die Emoji-Auswahl konnte nicht gespeichert werden. Bitte erneut versuchen.'},400)}
- }
  if(request.method!=='PUT')return reply({error:'Methode nicht erlaubt'},405);
  try{
   if(Number(request.headers.get('content-length'))>100000)return reply({error:'Zu gross'},413);
@@ -118,7 +107,7 @@ export async function handle(request,db){
   if(!tokenOK(body.readToken))throw Error('Leseschlüssel fehlt');
   let ics=validateICS(body.ics,body.month);const now=Date.now();
   const previous=await db.prepare('SELECT ics FROM months WHERE calendar=? AND month=?').bind(id,body.month).first();
-  ics=validateICS(rewriteCalendar(ics,{previous:previous?.ics||'',emojis:typeof body.emojis==='boolean'?body.emojis:undefined}),body.month);
+  ics=validateICS(rewriteCalendar(ics,{previous:previous?.ics?plainStoredCalendar(previous.ics):''}),body.month);
   // Cap each subscription to a rolling 25-month planning window.
   const monthIndex=Number(body.month.slice(0,4))*12+Number(body.month.slice(5))-1;
   const d=new Date(),current=d.getUTCFullYear()*12+d.getUTCMonth();
@@ -129,7 +118,6 @@ export async function handle(request,db){
    db.prepare('INSERT INTO months(key,calendar,month,ics) SELECT ?,?,?,? WHERE EXISTS(SELECT 1 FROM calendars WHERE id=? AND edit_hash=?) ON CONFLICT(key) DO UPDATE SET ics=excluded.ics').bind(id+':'+body.month,id,body.month,ics,id,editHash),
    db.prepare('DELETE FROM months WHERE calendar=? AND month<?').bind(id,cutoff)
   ]);
-  if(typeof body.emojis==='boolean')await updateEmojis(db,id,editHash,body.emojis);
   const data=await db.prepare('SELECT ics FROM months WHERE calendar=? ORDER BY month').bind(id).all();
   return reply({ok:true,services:listServices(data.results),groups:listGroups(data.results)});
  }catch{return reply({error:'Kalenderdaten ungültig. Monat und bestätigte Termine prüfen.'},400)}
